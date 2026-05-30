@@ -58,9 +58,9 @@ login-registry:
 
 .PHONY: deploy-placeholder
 deploy-placeholder:
-	@echo "Install the offline placeholder on the nginx/Synology host:"
-	@echo "  ./deploy/install-updating-placeholder.sh /var/www/control-addmylegacy"
-	@echo "See deploy/nginx.control.example.conf"
+	@echo "Optional only (first TV visit before service worker): install /missing on NAS"
+	@echo "  make install-nginx-placeholder NGINX_ROOT=/volume1/web/control-addmylegacy"
+	@echo "Normal deploy: bump STATIC_BUILD_ID and make build-push-docker"
 
 .PHONY: install-nginx-placeholder
 install-nginx-placeholder:

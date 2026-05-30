@@ -178,43 +178,61 @@
         try { return new ActiveXObject("Microsoft.XMLHTTP"); } catch (e) { return null; }
       }
 
-      function checkHealth(onSuccess) {
+      function fetchDashboardPage(onSuccess, onFailure) {
         var xhr = createXhr();
         if (!xhr) {
-          setStatus(true);
-          window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS);
+          onFailure("", 0);
           return;
         }
 
-        xhr.open("GET", HEALTH_PATH, true);
-        xhr.timeout = 4000;
+        xhr.open("GET", "/", true);
+        xhr.timeout = 8000;
         xhr.onreadystatechange = function () {
           var body;
           if (xhr.readyState !== 4) return;
           body = xhr.responseText || "";
-          if (xhr.status === 200 && body.indexOf("ok") !== -1) {
+          if (isValidDashboardHtml(body)) {
             onSuccess();
             return;
           }
-          applySynologyUi(isSynologyHtml(body));
+          applySynologyUi(isGatewayHtml(body));
           setStatus(true);
-          window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS);
+          window.setTimeout(function () { fetchDashboardPage(onSuccess, onFailure); }, POLL_MS);
         };
-        xhr.onerror = function () { applySynologyUi(isSynologyDocument()); setStatus(true); window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS); };
-        xhr.ontimeout = function () { setStatus(true); window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS); };
-        try { xhr.send(null); } catch (e) { setStatus(true); window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS); }
+        xhr.onerror = function () {
+          setStatus(true);
+          window.setTimeout(function () { fetchDashboardPage(onSuccess, onFailure); }, POLL_MS);
+        };
+        xhr.ontimeout = function () {
+          setStatus(true);
+          window.setTimeout(function () { fetchDashboardPage(onSuccess, onFailure); }, POLL_MS);
+        };
+        try { xhr.send(null); } catch (e) {
+          setStatus(true);
+          window.setTimeout(function () { fetchDashboardPage(onSuccess, onFailure); }, POLL_MS);
+        }
       }
 
-      if (isSynologyDocument()) {
-        applySynologyUi(true);
+      function isValidDashboardHtml(html) {
+        var text = String(html || "").toLowerCase();
+        return text.indexOf('name="control-addmylegacy" content="tv-dashboard"') !== -1 &&
+          text.indexOf('id="tv-root"') !== -1 &&
+          text.indexOf('id="tv-slides-data"') !== -1;
       }
 
+      function isGatewayHtml(html) {
+        var text = String(html || "").toLowerCase();
+        if (!text || text.indexOf("control-addmylegacy") !== -1) return false;
+        return text.indexOf("synology inc") !== -1 || text.indexOf("circle_text") !== -1 || text.indexOf(">404<") !== -1;
+      }
+
+      applySynologyUi(true);
       setStatus(false);
-      checkHealth(function () {
+      fetchDashboardPage(function () {
         setStatus(false);
-        if (statusEl) statusEl.textContent = "Service is ready. Loading dashboard…";
+        if (statusEl) statusEl.textContent = "Dashboard page verified. Loading…";
         window.location.href = "/";
-      });
+      }, function () {});
     })();
   </script>
 </body>

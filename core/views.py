@@ -1,4 +1,4 @@
-import json
+from pathlib import Path
 
 from django.conf import settings
 from django.http import HttpResponse
@@ -9,6 +9,15 @@ from django.views.decorators.http import require_GET
 
 from core.models import ArtSlide, TvDisplayConfig
 from core.weather import bay_area_weather
+
+STANDALONE_WAIT_PATH = Path(settings.BASE_DIR) / "deploy" / "updating.html"
+
+
+def _standalone_wait_response() -> HttpResponse:
+    content = STANDALONE_WAIT_PATH.read_text(encoding="utf-8")
+    response = HttpResponse(content, content_type="text/html; charset=utf-8")
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
 
 
 def _slide_url(request, static_path: str) -> str:
@@ -41,7 +50,6 @@ def _dashboard_context(request):
         "now": now,
         "refresh_seconds": settings.TV_REFRESH_SECONDS,
         "display_config": display_config,
-        "slides_json": json.dumps(slides),
         "slides": slides,
         "weather": bay_area_weather(),
     }
@@ -66,6 +74,21 @@ def wait_page(request):
             "poll_seconds": settings.TV_HEALTH_POLL_SECONDS,
         },
     )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
+
+
+@require_GET
+def missing_page(request):
+    """Synology 404 pages XHR GET /missing and replace themselves when this returns 200."""
+    return _standalone_wait_response()
+
+
+@require_GET
+def service_worker_unregister(request):
+    path = Path(settings.BASE_DIR) / "static" / "js" / "tv-sw-unregister.js"
+    response = HttpResponse(path.read_text(encoding="utf-8"), content_type="application/javascript")
+    response["Service-Worker-Allowed"] = "/"
     response["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
 

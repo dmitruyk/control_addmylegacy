@@ -2,7 +2,6 @@
   "use strict";
 
   var HEALTH_PATH = "/health/";
-  var WAIT_PATH = "/wait/";
   var DASHBOARD_PATH = "/";
   var pollMs = 3000;
   var monitorMs = 10000;
@@ -10,21 +9,18 @@
   var rootEl = null;
   var monitoring = false;
   var retryTimer = null;
-  var synologyDetected = false;
+  var gatewayDetected = false;
 
-  var SYNOLOGY_MARKERS = [
-    "synology",
-    "diskstation",
-    "dsm ",
-    "webstation",
-    "bad gateway",
-    "service unavailable",
-    "404",
-    "not found",
-    "page not found",
-    "page cannot be found",
-    "can't find this page",
-    "cannot be found"
+  var DASHBOARD_MARKERS = [
+    'name="control-addmylegacy" content="tv-dashboard"',
+    'id="tv-root"',
+    'id="tv-slides-data"',
+  ];
+
+  var GATEWAY_MARKERS = [
+    "synology inc",
+    "circle_text",
+    "the page you are looking for cannot be found",
   ];
 
   function getAppMarker() {
@@ -33,8 +29,43 @@
     return meta && meta.getAttribute ? meta.getAttribute("content") || "" : "";
   }
 
+  function htmlContainsMarkers(html, markers) {
+    var text = String(html || "").toLowerCase();
+    var index;
+
+    for (index = 0; index < markers.length; index += 1) {
+      if (text.indexOf(String(markers[index]).toLowerCase()) === -1) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function isValidDashboardHtml(html) {
+    return htmlContainsMarkers(html, DASHBOARD_MARKERS);
+  }
+
+  function isGatewayErrorHtml(html) {
+    var text = String(html || "").toLowerCase();
+
+    if (!text || text.indexOf("control-addmylegacy") !== -1) {
+      return false;
+    }
+
+    return htmlContainsMarkers(html, GATEWAY_MARKERS) || text.indexOf(">404<") !== -1;
+  }
+
   function isDashboardDocument() {
-    return getAppMarker() === "tv-dashboard";
+    if (getAppMarker() !== "tv-dashboard") {
+      return false;
+    }
+
+    return !!(
+      document.getElementById("tv-root") &&
+      document.getElementById("tv-slides-data") &&
+      document.querySelector(".tv-hud")
+    );
   }
 
   function isWaitDocument() {
@@ -43,28 +74,15 @@
     return marker === "wait-page" || marker === "updating-page";
   }
 
-  function isSynologyHtml(html) {
-    var text = String(html || "").toLowerCase();
-    var index;
-
-    if (!text || text.indexOf("control-addmylegacy") !== -1) {
+  function isGatewayErrorDocument() {
+    if (isDashboardDocument() || isWaitDocument()) {
       return false;
     }
 
-    for (index = 0; index < SYNOLOGY_MARKERS.length; index += 1) {
-      if (text.indexOf(SYNOLOGY_MARKERS[index]) !== -1) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  function isSynologyDocument() {
     var html = (document.documentElement && document.documentElement.innerHTML) || "";
     var title = document.title || "";
 
-    return isSynologyHtml(html + " " + title);
+    return isGatewayErrorHtml(html + " " + title);
   }
 
   function getPollInterval() {
@@ -83,6 +101,22 @@
     return value * 1000;
   }
 
+  function getRefreshInterval() {
+    var body = document.body;
+    var value;
+
+    if (!body || !body.getAttribute) {
+      return 0;
+    }
+
+    value = parseInt(body.getAttribute("data-refresh-seconds"), 10);
+    if (!value || value < 1) {
+      return 0;
+    }
+
+    return value * 1000;
+  }
+
   function createXhr() {
     if (window.XMLHttpRequest) {
       return new XMLHttpRequest();
@@ -95,34 +129,53 @@
     }
   }
 
-  function isDashboardReady() {
-    var slidesEl = document.getElementById("tv-slides-data");
-    var hud = document.querySelector(".tv-hud");
-    var slides = [];
+  function parseSlidesPayload(raw) {
+    var data;
 
-    if (!isDashboardDocument() || !rootEl || !slidesEl || !hud) {
-      return false;
+    if (!raw) {
+      return [];
     }
 
     try {
-      slides = JSON.parse(slidesEl.textContent || "[]");
+      data = JSON.parse(raw);
     } catch (error) {
+      return [];
+    }
+
+    if (typeof data === "string") {
+      try {
+        data = JSON.parse(data);
+      } catch (innerError) {
+        return [];
+      }
+    }
+
+    return data && data.length !== undefined ? data : [];
+  }
+
+  function isDashboardReady() {
+    var slidesEl = document.getElementById("tv-slides-data");
+    var slides = [];
+
+    if (!isDashboardDocument() || !rootEl || !slidesEl) {
       return false;
     }
 
-    return slides.length > 0;
+    slides = parseSlidesPayload(slidesEl.textContent || "[]");
+
+    return slides.length > 0 && slides[0] && slides[0].url;
   }
 
   function getUpdatingMetaEl() {
     return updatingEl ? updatingEl.getElementsByClassName("tv-updating-meta")[0] : null;
   }
 
-  function applySynologyWaitingUi() {
+  function applyGatewayWaitingUi() {
     var badgeEl;
     var titleEl;
     var messageEl;
 
-    synologyDetected = true;
+    gatewayDetected = true;
 
     if (!updatingEl) {
       return;
@@ -140,27 +193,22 @@
     }
 
     if (titleEl) {
-      titleEl.textContent = "Synology gateway — still waiting";
+      titleEl.textContent = "Gateway page detected — still waiting";
     }
 
     if (messageEl) {
       messageEl.textContent =
-        "The Synology gateway responded, but the control dashboard is not ready yet. This page will load automatically when the service is available.";
+        "The response was not the control dashboard yet. Waiting until the real dashboard page is available.";
     }
 
-    document.title = "Synology — waiting for dashboard";
+    document.title = "Still waiting for dashboard";
   }
 
   function injectWaitingShell() {
-    var styleEl;
-    var badgeEl;
-    var titleEl;
-    var messageEl;
-
     if (document.getElementById("tv-updating")) {
       updatingEl = document.getElementById("tv-updating");
       setUpdatingVisible(true);
-      applySynologyWaitingUi();
+      applyGatewayWaitingUi();
       return;
     }
 
@@ -170,46 +218,15 @@
     updatingEl.setAttribute("aria-live", "polite");
     updatingEl.setAttribute("aria-busy", "true");
     updatingEl.innerHTML =
-      '<p class="tv-updating-badge" id="tv-updating-badge">Synology gateway</p>' +
+      '<p class="tv-updating-badge" id="tv-updating-badge">Gateway</p>' +
       '<div class="tv-updating-mark" aria-hidden="true">AML</div>' +
       '<div class="tv-updating-spinner" aria-hidden="true"></div>' +
-      '<h1 class="tv-updating-title" id="tv-updating-title">Synology gateway — still waiting</h1>' +
-      '<p class="tv-updating-message" id="tv-updating-message">The control dashboard is not available yet. This page will load automatically when the service is ready.</p>' +
-      '<p class="tv-updating-meta" id="tv-updating-meta">Checking control dashboard…</p>';
-
-    styleEl = document.createElement("style");
-    styleEl.textContent =
-      "html,body{margin:0;height:100%;overflow:hidden;background:#0b0f14;color:#f4f7fb;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;}" +
-      ".tv-updating{align-items:center;box-sizing:border-box;display:flex;flex-direction:column;height:100%;justify-content:center;padding:48px;position:fixed;left:0;top:0;width:100%;z-index:2147483647;text-align:center;}" +
-      ".tv-updating-mark{align-items:center;background:linear-gradient(135deg,#2dd4bf,#2563eb);border-radius:20px;color:#041018;display:flex;font-size:40px;font-weight:800;height:112px;justify-content:center;letter-spacing:.08em;margin-bottom:40px;width:112px;}" +
-      ".tv-updating-title{color:#fbbf24;font-size:56px;font-weight:700;line-height:1.15;margin:0 0 20px;}" +
-      ".tv-updating-message{color:#4fd1c5;font-size:32px;line-height:1.4;margin:0 0 16px;max-width:960px;}" +
-      ".tv-updating-meta{color:#9aa8bc;font-size:22px;margin:0;}" +
-      ".tv-updating-badge{background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.45);border-radius:999px;color:#fbbf24;display:block;font-size:16px;font-weight:700;letter-spacing:.14em;margin:0 0 24px;padding:10px 18px;text-transform:uppercase;}" +
-      ".tv-updating-spinner{border:4px solid #243041;border-radius:50%;border-top-color:#4fd1c5;height:56px;margin-bottom:36px;width:56px;animation:tv-spin 1s linear infinite;}" +
-      "@keyframes tv-spin{to{transform:rotate(360deg);}}";
-
-    document.head.appendChild(styleEl);
+      '<h1 class="tv-updating-title" id="tv-updating-title">Still waiting</h1>' +
+      '<p class="tv-updating-message" id="tv-updating-message">The control dashboard will appear automatically when the real service page is available.</p>' +
+      '<p class="tv-updating-meta" id="tv-updating-meta">Checking dashboard page content…</p>';
     document.body.appendChild(updatingEl);
-    synologyDetected = true;
-    document.title = "Synology — waiting for dashboard";
-
-    badgeEl = document.getElementById("tv-updating-badge");
-    titleEl = document.getElementById("tv-updating-title");
-    messageEl = document.getElementById("tv-updating-message");
-
-    if (badgeEl) {
-      badgeEl.removeAttribute("hidden");
-    }
-
-    if (titleEl) {
-      titleEl.textContent = "Synology gateway — still waiting";
-    }
-
-    if (messageEl) {
-      messageEl.textContent =
-        "The Synology gateway responded, but the control dashboard is not ready yet. This page will load automatically when the service is available.";
-    }
+    gatewayDetected = true;
+    document.title = "Still waiting for dashboard";
   }
 
   function setUpdatingVisible(visible) {
@@ -218,7 +235,7 @@
     }
 
     if (visible) {
-      updatingEl.className = synologyDetected
+      updatingEl.className = gatewayDetected
         ? "tv-updating tv-updating-visible tv-updating-synology"
         : "tv-updating tv-updating-visible";
       updatingEl.setAttribute("aria-hidden", "false");
@@ -244,7 +261,7 @@
     }
   }
 
-  function checkHealth(onSuccess, onFailure) {
+  function fetchDashboardPage(onSuccess, onFailure) {
     var xhr = createXhr();
 
     if (!xhr) {
@@ -252,8 +269,8 @@
       return;
     }
 
-    xhr.open("GET", HEALTH_PATH, true);
-    xhr.timeout = 4000;
+    xhr.open("GET", DASHBOARD_PATH, true);
+    xhr.timeout = 8000;
 
     xhr.onreadystatechange = function () {
       var body;
@@ -264,22 +281,19 @@
 
       body = xhr.responseText || "";
 
-      if (xhr.status === 200 && body.indexOf("ok") !== -1) {
-        onSuccess();
+      if (isValidDashboardHtml(body)) {
+        onSuccess(body, xhr.status);
         return;
       }
 
-      if (isSynologyHtml(body)) {
-        applySynologyWaitingUi();
+      if (isGatewayErrorHtml(body)) {
+        applyGatewayWaitingUi();
       }
 
       onFailure(body, xhr.status);
     };
 
     xhr.onerror = function () {
-      if (isSynologyDocument()) {
-        applySynologyWaitingUi();
-      }
       onFailure("", 0);
     };
 
@@ -307,58 +321,35 @@
     retryTimer = window.setTimeout(callback, pollMs);
   }
 
-  function openDashboardWhenReady() {
-    if (isWaitDocument() || !isDashboardDocument()) {
-      window.location.replace(DASHBOARD_PATH);
+  function clearBrokenServiceWorkers() {
+    if (!("serviceWorker" in navigator) || !navigator.serviceWorker.register) {
       return;
     }
 
-    window.location.reload();
-  }
+    try {
+      navigator.serviceWorker.register("/sw.js").catch(function () {});
 
-  function redirectToWaitingRoute() {
-    var path = window.location.pathname || "/";
-
-    if (path.indexOf(WAIT_PATH) === 0 || path.indexOf("/updating") === 0) {
-      injectWaitingShell();
-      attemptShowDashboard();
-      return;
-    }
-
-    window.location.replace(WAIT_PATH);
-  }
-
-  function activateDashboardIfReady() {
-    if (isWaitDocument()) {
-      setUpdatingVisible(true);
-      setUpdatingStatus("Still waiting for control dashboard…");
-      scheduleRetry(function () {
-        attemptShowDashboard();
-      });
-      return;
-    }
-
-    if (!isDashboardDocument()) {
-      if (isSynologyDocument()) {
-        injectWaitingShell();
-        setUpdatingStatus("Synology gateway — waiting for control dashboard…");
-      } else {
-        setUpdatingStatus("Still waiting — loading control dashboard…");
+      if (!navigator.serviceWorker.getRegistrations) {
+        return;
       }
 
-      scheduleRetry(redirectToWaitingRoute);
-      return;
-    }
+      window.setTimeout(function () {
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          var index;
 
-    if (!isDashboardReady()) {
-      setUpdatingVisible(true);
-      setUpdatingStatus("Still waiting — preparing gallery…");
-      scheduleRetry(function () {
-        attemptShowDashboard();
-      });
-      return;
+          for (index = 0; index < registrations.length; index += 1) {
+            if (registrations[index].active && registrations[index].active.scriptURL.indexOf("tv-sw.js") !== -1) {
+              registrations[index].unregister();
+            }
+          }
+        });
+      }, 2000);
+    } catch (error) {
+      /* ignore */
     }
+  }
 
+  function revealDashboard() {
     clearRetryTimer();
     setUpdatingVisible(false);
 
@@ -373,33 +364,58 @@
     }
 
     startMonitor();
+    startSoftRefresh();
+  }
+
+  function activateDashboardIfReady() {
+    if (!isDashboardDocument()) {
+      injectWaitingShell();
+      setUpdatingStatus("Still waiting — verifying dashboard page content…");
+      scheduleRetry(attemptShowDashboard);
+      return;
+    }
+
+    if (!isDashboardReady()) {
+      setUpdatingVisible(true);
+      setUpdatingStatus("Still waiting — preparing gallery…");
+      scheduleRetry(attemptShowDashboard);
+      return;
+    }
+
+    revealDashboard();
   }
 
   function attemptShowDashboard() {
     setUpdatingVisible(true);
-    setUpdatingStatus("Checking control dashboard…");
 
-    checkHealth(
+    if (isDashboardDocument() && isDashboardReady()) {
+      setUpdatingStatus("Dashboard page ready.");
+      revealDashboard();
+      return;
+    }
+
+    if (isDashboardDocument()) {
+      setUpdatingStatus("Still waiting — preparing gallery…");
+      scheduleRetry(attemptShowDashboard);
+      return;
+    }
+
+    setUpdatingStatus("Checking dashboard page content…");
+
+    fetchDashboardPage(
       function () {
-        if (isWaitDocument() || !isDashboardDocument()) {
-          setUpdatingStatus("Service is ready. Loading dashboard…");
-          openDashboardWhenReady();
-          return;
-        }
-
-        activateDashboardIfReady();
+        setUpdatingStatus("Dashboard page verified. Loading…");
+        window.location.replace(DASHBOARD_PATH);
       },
       function () {
-        if (synologyDetected || isSynologyDocument()) {
-          applySynologyWaitingUi();
-          setUpdatingStatus("Synology gateway — container still starting…");
+        if (gatewayDetected || isGatewayErrorDocument()) {
+          applyGatewayWaitingUi();
+          setUpdatingStatus("Gateway page detected — waiting for real dashboard…");
         } else {
           setUpdatingStatus("Still waiting for control dashboard…");
         }
 
-        scheduleRetry(function () {
-          attemptShowDashboard();
-        });
+        scheduleRetry(attemptShowDashboard);
       }
     );
   }
@@ -413,41 +429,72 @@
     monitorMs = Math.max(getPollInterval() * 2, 10000);
 
     window.setInterval(function () {
-      checkHealth(
+      if (!isDashboardDocument()) {
+        setUpdatingVisible(true);
+        applyGatewayWaitingUi();
+        scheduleRetry(attemptShowDashboard);
+        return;
+      }
+
+      fetchDashboardPage(
         function () {
-          if (isDashboardDocument() && !isDashboardReady()) {
+          if (!isDashboardReady()) {
             setUpdatingVisible(true);
             setUpdatingStatus("Still waiting — restoring gallery…");
-            scheduleRetry(function () {
-              attemptShowDashboard();
-            });
+            scheduleRetry(attemptShowDashboard);
           }
         },
         function () {
-          setUpdatingVisible(true);
-
-          if (synologyDetected || isSynologyDocument()) {
-            applySynologyWaitingUi();
-            setUpdatingStatus("Synology gateway — waiting for control dashboard…");
-          } else {
-            setUpdatingStatus("Still waiting for control dashboard…");
+          if (isDashboardDocument() && isDashboardReady()) {
+            return;
           }
 
-          scheduleRetry(function () {
-            attemptShowDashboard();
-          });
+          setUpdatingVisible(true);
+          applyGatewayWaitingUi();
+          setUpdatingStatus("Gateway page detected — waiting for real dashboard…");
+          scheduleRetry(attemptShowDashboard);
         }
       );
     }, monitorMs);
+  }
+
+  function startSoftRefresh() {
+    var refreshMs = getRefreshInterval();
+    var currentBuildMeta;
+    var currentBuildId;
+
+    if (!refreshMs || !isDashboardDocument()) {
+      return;
+    }
+
+    currentBuildMeta = document.querySelector('meta[name="aml-static-build"]');
+    currentBuildId = currentBuildMeta ? currentBuildMeta.getAttribute("content") : "";
+
+    window.setInterval(function () {
+      fetchDashboardPage(
+        function (html) {
+          var match = String(html).match(/name="aml-static-build"\s+content="([^"]+)"/);
+
+          if (match && currentBuildId && match[1] !== currentBuildId) {
+            window.location.reload();
+          }
+        },
+        function () {
+          /* Keep showing the current dashboard if the poll fails. */
+        }
+      );
+    }, refreshMs);
   }
 
   function boot() {
     updatingEl = document.getElementById("tv-updating");
     rootEl = document.getElementById("tv-root");
 
-    if (isSynologyDocument() && !isDashboardDocument() && !isWaitDocument()) {
+    clearBrokenServiceWorkers();
+
+    if (isGatewayErrorDocument()) {
       injectWaitingShell();
-      setUpdatingStatus("Synology gateway — waiting for control dashboard…");
+      setUpdatingStatus("Gateway page detected — waiting for real dashboard…");
       attemptShowDashboard();
       return;
     }
@@ -458,7 +505,9 @@
     }
 
     if (!isDashboardDocument()) {
-      redirectToWaitingRoute();
+      injectWaitingShell();
+      setUpdatingStatus("Still waiting — verifying dashboard page content…");
+      attemptShowDashboard();
       return;
     }
 
@@ -466,15 +515,8 @@
       injectWaitingShell();
     }
 
-    if (!rootEl) {
-      setUpdatingVisible(true);
-      setUpdatingStatus("Still waiting — preparing gallery…");
-      attemptShowDashboard();
-      return;
-    }
-
     setUpdatingVisible(true);
-    setUpdatingStatus("Checking control dashboard…");
+    setUpdatingStatus("Checking dashboard page…");
     attemptShowDashboard();
   }
 

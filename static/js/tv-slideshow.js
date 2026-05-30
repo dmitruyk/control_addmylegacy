@@ -17,17 +17,37 @@
   var loadToken = 0;
   var loadFallbackMs = 8000;
 
+  function parseSlidesPayload(raw) {
+    var data;
+
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      data = JSON.parse(raw);
+    } catch (error) {
+      return [];
+    }
+
+    if (typeof data === "string") {
+      try {
+        data = JSON.parse(data);
+      } catch (innerError) {
+        return [];
+      }
+    }
+
+    return data && data.length !== undefined ? data : [];
+  }
+
   function readSlides() {
     var dataEl = document.getElementById("tv-slides-data");
     if (!dataEl || !dataEl.textContent) {
       return [];
     }
 
-    try {
-      return JSON.parse(dataEl.textContent);
-    } catch (error) {
-      return [];
-    }
+    return parseSlidesPayload(dataEl.textContent);
   }
 
   function readNumberAttr(name, fallback) {
@@ -122,7 +142,7 @@
     var img;
     var token;
 
-    if (!slide || !currentLayer || !alternateLayer) {
+    if (!slide || !slide.url || !currentLayer || !alternateLayer) {
       if (done) {
         done();
       }

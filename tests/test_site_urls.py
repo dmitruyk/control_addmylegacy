@@ -37,6 +37,24 @@ class SiteUrlTests(TestCase):
         self.assertContains(response, "tv-boot.js")
         self.assertNotContains(response, "tv-info-panels")
 
+        slides = self._parse_slides_json(response.content.decode())
+        self.assertEqual(len(slides), 12)
+        self.assertIn(".jpg", slides[0]["url"])
+        self.assertIn("city-new-york.jpg", slides[0]["url"])
+
+    def _parse_slides_json(self, html: str) -> list:
+        import json
+        import re
+
+        match = re.search(
+            r'<script id="tv-slides-data" type="application/json">(.+?)</script>',
+            html,
+        )
+        self.assertIsNotNone(match, "tv-slides-data script tag not found")
+        data = json.loads(match.group(1))
+        self.assertIsInstance(data, list, "slides JSON must be an array, not a double-encoded string")
+        return data
+
     @patch("core.views.bay_area_weather")
     def test_tv_dashboard_info_panels_when_enabled(self, mock_weather):
         from core.models import TvDisplayConfig
@@ -78,6 +96,19 @@ class SiteUrlTests(TestCase):
         response = self.client.get(reverse("core:updating_html"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'content="wait-page"')
+
+    def test_missing_page_for_synology_hook(self):
+        response = self.client.get(reverse("core:missing"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'content="wait-page"')
+        self.assertContains(response, "Synology NAS gateway")
+        self.assertContains(response, "HEALTH_PATH")
+        self.assertEqual(response["Cache-Control"], "no-store, no-cache, must-revalidate")
+
+    def test_missing_page_slash_route(self):
+        response = self.client.get("/missing/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "AML")
 
     def test_unknown_route_shows_wait_shell(self):
         response = self.client.get("/missing-route/")

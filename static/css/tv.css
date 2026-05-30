@@ -31,16 +31,28 @@ html {
   cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
 }
 
-#tv-cursor-shield {
+#tv-cursor-shield,
+#tv-cursor-shield-back {
   background: transparent;
+  border: 0;
   cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
   height: 100%;
   left: 0;
+  margin: 0;
+  opacity: 0.001;
+  padding: 0;
   pointer-events: auto;
   position: fixed;
   top: 0;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
   width: 100%;
   z-index: 2147483646;
+}
+
+#tv-cursor-shield-back {
+  z-index: 2147483645;
 }
 
 .tv-shell {
