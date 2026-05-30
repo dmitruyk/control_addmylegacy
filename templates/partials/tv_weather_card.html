@@ -1,0 +1,29 @@
+<article class="tv-weather-card">
+  <p class="tv-weather-city">{{ item.city }}</p>
+
+  <div class="tv-weather-current">
+    <span class="tv-weather-icon tv-weather-icon-{{ item.icon }}" aria-hidden="true">{{ item.symbol }}</span>
+    <div class="tv-weather-current-text">
+      <p class="tv-weather-temp">
+        {% if item.is_available and item.temperature_c is not None %}
+          {{ item.temperature_c }}°C
+        {% else %}
+          —
+        {% endif %}
+      </p>
+      <p class="tv-weather-label">{{ item.label }}</p>
+    </div>
+  </div>
+
+  {% if item.hourly %}
+  <div class="tv-weather-hourly" aria-label="Hourly forecast for {{ item.city }}">
+    {% for hour in item.hourly %}
+    <div class="tv-weather-hour">
+      <p class="tv-weather-hour-time">{{ hour.hour_label }}</p>
+      <span class="tv-weather-icon tv-weather-icon-sm tv-weather-icon-{{ hour.icon }}" aria-hidden="true" title="{{ hour.label }}">{{ hour.symbol }}</span>
+      <p class="tv-weather-hour-temp">{% if hour.temperature_c is not None %}{{ hour.temperature_c }}°{% else %}—{% endif %}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</article>

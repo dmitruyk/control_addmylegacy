@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="control-addmylegacy" content="wait-page">
+  <title>AddMyLegacy Control — Updating</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
+    }
+
+    body {
+      background-color: #0b0f14;
+      background-image: radial-gradient(circle at top, #152033 0%, #0b0f14 55%);
+      color: #f4f7fb;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    body, body * { cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important; }
+
+    #tv-cursor-shield {
+      background: transparent;
+      height: 100%;
+      left: 0;
+      pointer-events: auto;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 2147483646;
+    }
+
+    .tv-updating-shell {
+      align-items: center;
+      box-sizing: border-box;
+      display: -webkit-box;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-orient: vertical;
+      -webkit-flex-direction: column;
+      flex-direction: column;
+      height: 100%;
+      -webkit-box-pack: center;
+      justify-content: center;
+      padding: 48px;
+      text-align: center;
+      width: 100%;
+    }
+
+    .tv-updating-badge {
+      background: rgba(251, 191, 36, 0.16);
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      border-radius: 999px;
+      color: #fbbf24;
+      display: none;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      margin: 0 0 24px;
+      padding: 10px 18px;
+      text-transform: uppercase;
+    }
+
+    .tv-updating-shell-synology .tv-updating-title { color: #fbbf24; }
+    .tv-updating-shell-synology .tv-updating-badge { display: block; }
+
+    .tv-updating-mark {
+      align-items: center;
+      background-image: linear-gradient(135deg, #2dd4bf, #2563eb);
+      border-radius: 20px;
+      color: #041018;
+      display: -webkit-flex;
+      display: flex;
+      font-size: 40px;
+      font-weight: 800;
+      height: 112px;
+      justify-content: center;
+      letter-spacing: 0.08em;
+      margin-bottom: 40px;
+      width: 112px;
+    }
+
+    .tv-updating-title { font-size: 56px; font-weight: 700; line-height: 1.15; margin: 0 0 20px; }
+    .tv-updating-message { color: #4fd1c5; font-size: 32px; line-height: 1.4; margin: 0 0 16px; max-width: 960px; }
+    .tv-updating-meta { color: #9aa8bc; font-size: 22px; margin: 0; }
+
+    .tv-updating-spinner {
+      border: 4px solid #243041;
+      border-radius: 50%;
+      border-top-color: #4fd1c5;
+      height: 56px;
+      margin-bottom: 36px;
+      width: 56px;
+      -webkit-animation: tv-spin 1s linear infinite;
+      animation: tv-spin 1s linear infinite;
+    }
+
+    @-webkit-keyframes tv-spin { to { -webkit-transform: rotate(360deg); } }
+    @keyframes tv-spin { to { -webkit-transform: rotate(360deg); transform: rotate(360deg); } }
+
+    @media screen and (min-width: 1600px) {
+      .tv-updating-title { font-size: 72px; }
+      .tv-updating-message { font-size: 40px; }
+      .tv-updating-meta { font-size: 28px; }
+      .tv-updating-badge { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="tv-updating-shell" id="tv-updating-shell" role="main" aria-live="polite" aria-busy="true">
+    <p class="tv-updating-badge" id="tv-updating-synology-badge">Synology NAS gateway</p>
+    <div class="tv-updating-mark" aria-hidden="true">AML</div>
+    <div class="tv-updating-spinner" aria-hidden="true"></div>
+    <h1 class="tv-updating-title" id="tv-updating-title">Updating in progress</h1>
+    <p class="tv-updating-message" id="tv-updating-message">The control dashboard is restarting. This page will load automatically when the service is ready.</p>
+    <p class="tv-updating-meta" id="tv-updating-status">Checking service status…</p>
+  </main>
+  <div id="tv-cursor-shield" aria-hidden="true" tabindex="-1"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var HEALTH_PATH = "/health/";
+      var POLL_MS = 3000;
+      var synologyDetected = false;
+      var shellEl = document.getElementById("tv-updating-shell");
+      var titleEl = document.getElementById("tv-updating-title");
+      var messageEl = document.getElementById("tv-updating-message");
+      var statusEl = document.getElementById("tv-updating-status");
+
+      var SYNOLOGY_MARKERS = ["synology", "diskstation", "dsm ", "webstation", "bad gateway", "service unavailable", "404", "not found", "page not found", "page cannot be found"];
+
+      function isSynologyHtml(html) {
+        var text = String(html || "").toLowerCase();
+        var i;
+        if (!text || text.indexOf("control-addmylegacy") !== -1) return false;
+        for (i = 0; i < SYNOLOGY_MARKERS.length; i += 1) {
+          if (text.indexOf(SYNOLOGY_MARKERS[i]) !== -1) return true;
+        }
+        return false;
+      }
+
+      function isSynologyDocument() {
+        return isSynologyHtml((document.documentElement.innerHTML || "") + " " + (document.title || ""));
+      }
+
+      function applySynologyUi(isSynology) {
+        synologyDetected = isSynology;
+        if (isSynology) {
+          document.title = "Synology — waiting for dashboard";
+          if (titleEl) titleEl.textContent = "Synology gateway — still waiting";
+          if (messageEl) messageEl.textContent = "The Synology NAS is online but the control dashboard container is still restarting. This page will load automatically when the service is ready.";
+          if (shellEl) shellEl.className = "tv-updating-shell tv-updating-shell-synology";
+        }
+      }
+
+      function setStatus(retrying) {
+        if (!statusEl) return;
+        if (synologyDetected) {
+          statusEl.textContent = retrying
+            ? "Synology gateway detected — container still starting…"
+            : "Checking Synology gateway and container status…";
+          return;
+        }
+        statusEl.textContent = retrying
+          ? "Still updating… retrying in a few seconds"
+          : "Checking service status…";
+      }
+
+      function createXhr() {
+        if (window.XMLHttpRequest) return new XMLHttpRequest();
+        try { return new ActiveXObject("Microsoft.XMLHTTP"); } catch (e) { return null; }
+      }
+
+      function checkHealth(onSuccess) {
+        var xhr = createXhr();
+        if (!xhr) {
+          setStatus(true);
+          window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS);
+          return;
+        }
+
+        xhr.open("GET", HEALTH_PATH, true);
+        xhr.timeout = 4000;
+        xhr.onreadystatechange = function () {
+          var body;
+          if (xhr.readyState !== 4) return;
+          body = xhr.responseText || "";
+          if (xhr.status === 200 && body.indexOf("ok") !== -1) {
+            onSuccess();
+            return;
+          }
+          applySynologyUi(isSynologyHtml(body));
+          setStatus(true);
+          window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS);
+        };
+        xhr.onerror = function () { applySynologyUi(isSynologyDocument()); setStatus(true); window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS); };
+        xhr.ontimeout = function () { setStatus(true); window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS); };
+        try { xhr.send(null); } catch (e) { setStatus(true); window.setTimeout(function () { checkHealth(onSuccess); }, POLL_MS); }
+      }
+
+      if (isSynologyDocument()) {
+        applySynologyUi(true);
+      }
+
+      setStatus(false);
+      checkHealth(function () {
+        setStatus(false);
+        if (statusEl) statusEl.textContent = "Service is ready. Loading dashboard…";
+        window.location.href = "/";
+      });
+    })();
+  </script>
+</body>
+</html>

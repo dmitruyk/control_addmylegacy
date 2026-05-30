@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Updating in progress</title>
+  <style>
+    body {
+      background: #0b0f14;
+      color: #f4f7fb;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 48px;
+    }
+    h1 { font-size: 48px; margin-bottom: 16px; }
+    p { color: #4fd1c5; font-size: 24px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Updating in progress</h1>
+    <p>The control dashboard is restarting. Please wait…</p>
+    <script>
+      setInterval(function () {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "/health/", true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4 && xhr.status === 200 && xhr.responseText.indexOf("ok") !== -1) {
+            window.location.href = "/";
+          }
+        };
+        xhr.send();
+      }, 3000);
+    </script>
+  </main>
+</body>
+</html>

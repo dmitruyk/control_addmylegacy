@@ -1,0 +1,76 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ SITE_NAME }}</title>
+  <meta name="description" content="{{ SITE_NAME }} — art gallery display for AddMyLegacy.">
+  <meta name="aml-static-build" content="{{ STATIC_BUILD_ID }}">
+  <meta name="control-addmylegacy" content="tv-dashboard">
+  {% if refresh_seconds %}
+  <meta http-equiv="refresh" content="{{ refresh_seconds }}">
+  {% endif %}
+  <link rel="stylesheet" href="{% static 'css/tv.css' %}?v={{ STATIC_BUILD_ID }}">
+</head>
+<body
+  class="tv-body tv-body-gallery"
+  data-refresh-seconds="{{ refresh_seconds|default:0 }}"
+  data-health-poll-seconds="{{ TV_HEALTH_POLL_SECONDS }}"
+  data-slide-duration="{{ display_config.slide_duration_seconds }}"
+  data-transition-seconds="{{ display_config.transition_seconds }}"
+>
+  {% include "partials/tv_updating_overlay.html" %}
+
+  <div class="tv-gallery tv-content-hidden" id="tv-root" role="main" aria-label="Art gallery display">
+    <div class="tv-slideshow" aria-hidden="true">
+      <div class="tv-slide tv-slide-a tv-slide-active">
+        {% if slides %}
+        <img class="tv-slide-img" src="{{ slides.0.url }}" alt="{{ slides.0.title }}">
+        {% endif %}
+      </div>
+      <div class="tv-slide tv-slide-b"></div>
+      <p class="tv-slide-caption" id="tv-slide-caption">{% if slides %}{{ slides.0.title }}{% endif %}</p>
+    </div>
+
+    <div class="tv-hud" aria-live="polite">
+      <div class="tv-hud-datetime">
+        <p class="tv-hud-weekday" id="tv-hud-weekday">{{ now|date:"l" }}</p>
+        <p class="tv-hud-date" id="tv-hud-date">{{ now|date:"F j, Y" }}</p>
+        <p class="tv-hud-time" id="tv-hud-time">{{ now|date:"g:i" }}<span class="tv-hud-ampm" id="tv-hud-ampm">{{ now|date:"A" }}</span></p>
+      </div>
+
+      <div class="tv-hud-weather">
+        {% for item in weather %}
+        {% include "partials/tv_weather_card.html" with item=item %}
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if display_config.show_info_panels %}
+    <aside class="tv-info-panels" aria-label="System information">
+      <article class="tv-info-card">
+        <p class="tv-info-label">Platform</p>
+        <p class="tv-info-value tv-status-ok">Operational</p>
+      </article>
+      <article class="tv-info-card">
+        <p class="tv-info-label">Environment</p>
+        <p class="tv-info-value">{{ SITE_URL }}</p>
+      </article>
+      <article class="tv-info-card">
+        <p class="tv-info-label">Build</p>
+        <p class="tv-info-value">{{ STATIC_BUILD_ID }}</p>
+      </article>
+    </aside>
+    {% endif %}
+  </div>
+
+  {{ slides_json|json_script:"tv-slides-data" }}
+
+  <script src="{% static 'js/tv-cursor.js' %}?v={{ STATIC_BUILD_ID }}"></script>
+  <script src="{% static 'js/tv-boot.js' %}?v={{ STATIC_BUILD_ID }}"></script>
+  <script src="{% static 'js/tv-slideshow.js' %}?v={{ STATIC_BUILD_ID }}"></script>
+  <script src="{% static 'js/tv-clock.js' %}?v={{ STATIC_BUILD_ID }}"></script>
+</body>
+</html>

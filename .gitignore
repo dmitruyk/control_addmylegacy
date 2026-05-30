@@ -1,0 +1,16 @@
+*.pyc
+__pycache__/
+*.py[cod]
+.env
+secrets/
+.venv/
+venv/
+db.sqlite3
+staticfiles/
+.DS_Store
+.idea/
+*.egg-info/
+.coverage
+htmlcov/
+.pytest_cache/
+node_modules/
