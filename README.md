@@ -113,10 +113,7 @@ The page is built for that engine:
 | Clock | `Intl.DateTimeFormat` with manual date/time fallback |
 | Refresh | `<meta http-equiv="refresh">` + JS `location.reload()` backup |
 | Deploy | In-page waiting overlay via `tv-boot.js` until dashboard verified |
-| Cursor | Transparent cursor + `tv-cursor.js` reapply every 150ms + full-screen shield |
-| Assets | `tv.css` + `tv-cursor.js` + `tv-boot.js` + `tv-clock.js` — no Tailwind, no CDN scripts |
+| Assets | `tv.css` + `tv-boot.js` + `tv-clock.js` + `tv-slideshow.js` — no Tailwind, no CDN scripts |
 | No-JS | Server-rendered date/time still visible via `<noscript>` |
 
 Point the Samsung TV browser to `https://control.addmylegacy.com`. Typography scales at 1600px+ and 2560px+ breakpoints for 10-foot viewing.
-
-**Hiding the pointer:** The built-in TV browser re-shows the magic-remote cursor after idle. The app uses a 1×1 transparent cursor, reapplies `cursor: none` every 150ms, and a full-screen `#tv-cursor-shield` layer. If the pointer still appears, turn off **Pointer** / mouse mode in the Samsung browser toolbar or use a Tizen app with `pointing-device-support="disable"` (not available for plain URLs).

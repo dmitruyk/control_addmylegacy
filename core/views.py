@@ -7,6 +7,7 @@ from django.templatetags.static import static
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
+from core.earthquakes import bay_area_earthquakes
 from core.models import ArtSlide, TvDisplayConfig
 from core.weather import bay_area_weather
 
@@ -52,6 +53,7 @@ def _dashboard_context(request):
         "display_config": display_config,
         "slides": slides,
         "weather": bay_area_weather(),
+        "earthquakes": bay_area_earthquakes(),
     }
 
 
@@ -81,7 +83,7 @@ def wait_page(request):
 @require_GET
 def missing_page(request):
     """Synology 404 pages XHR GET /missing and replace themselves when this returns 200."""
-    return _standalone_wait_response()
+    return wait_page(request)
 
 
 @require_GET

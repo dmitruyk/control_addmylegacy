@@ -153,6 +153,19 @@ TV_WEATHER_LOCATIONS = [
     ("San Francisco", 37.7749, -122.4194),
 ]
 
+# Bay Area earthquakes (USGS, no API key).
+TV_EARTHQUAKE_CACHE_SECONDS = env.int("TV_EARTHQUAKE_CACHE_SECONDS", default=600)
+TV_EARTHQUAKE_LOOKBACK_DAYS = env.int("TV_EARTHQUAKE_LOOKBACK_DAYS", default=30)
+TV_EARTHQUAKE_RECENT_DAYS = env.int("TV_EARTHQUAKE_RECENT_DAYS", default=3)
+TV_EARTHQUAKE_MIN_MAGNITUDE = env.float("TV_EARTHQUAKE_MIN_MAGNITUDE", default=2.5)
+TV_EARTHQUAKE_LIMIT = env.int("TV_EARTHQUAKE_LIMIT", default=4)
+TV_EARTHQUAKE_BBOX = {
+    "min_lat": 36.5,
+    "max_lat": 38.8,
+    "min_lon": -123.5,
+    "max_lon": -121.0,
+}
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

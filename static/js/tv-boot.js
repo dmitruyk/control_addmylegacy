@@ -1,8 +1,6 @@
 (function () {
   "use strict";
 
-  var HEALTH_PATH = "/health/";
-  var DASHBOARD_PATH = "/";
   var pollMs = 3000;
   var monitorMs = 10000;
   var updatingEl = null;
@@ -10,6 +8,14 @@
   var monitoring = false;
   var retryTimer = null;
   var gatewayDetected = false;
+  var serviceConfig = null;
+
+  var LOCAL_HOSTS = {
+    localhost: true,
+    "127.0.0.1": true,
+    "0.0.0.0": true,
+    "::1": true,
+  };
 
   var DASHBOARD_MARKERS = [
     'name="control-addmylegacy" content="tv-dashboard"',
@@ -23,10 +29,102 @@
     "the page you are looking for cannot be found",
   ];
 
-  function getAppMarker() {
-    var meta = document.querySelector('meta[name="control-addmylegacy"]');
+  function readMeta(name) {
+    var meta = document.querySelector('meta[name="' + name + '"]');
 
-    return meta && meta.getAttribute ? meta.getAttribute("content") || "" : "";
+    return meta && meta.getAttribute ? (meta.getAttribute("content") || "").trim() : "";
+  }
+
+  function readBodyData(name) {
+    var body = document.body;
+
+    if (!body || !body.getAttribute) {
+      return "";
+    }
+
+    return (body.getAttribute(name) || "").trim();
+  }
+
+  function normalizeBase(url) {
+    return String(url || "").replace(/\/+$/, "");
+  }
+
+  function joinUrl(base, path) {
+    var normalizedBase = normalizeBase(base);
+    var normalizedPath = path || "/";
+
+    if (normalizedPath.charAt(0) !== "/") {
+      normalizedPath = "/" + normalizedPath;
+    }
+
+    return normalizedBase + normalizedPath;
+  }
+
+  function isLocalHost(hostname) {
+    return !!LOCAL_HOSTS[String(hostname || "").toLowerCase()];
+  }
+
+  function resolveServiceConfig() {
+    var hostname = window.location.hostname || "";
+    var currentOrigin = normalizeBase(window.location.origin || "");
+    var configuredBase = readMeta("aml-service-url") || readBodyData("data-service-base");
+    var configuredMode = readMeta("aml-service-mode") || readBodyData("data-service-mode");
+    var base;
+    var mode;
+
+    if (configuredMode === "local" || isLocalHost(hostname)) {
+      base = currentOrigin;
+      mode = "local";
+    } else if (configuredBase) {
+      base = normalizeBase(configuredBase);
+      mode = "production";
+    } else {
+      base = currentOrigin;
+      mode = isLocalHost(hostname) ? "local" : "production";
+    }
+
+    return {
+      base: base,
+      mode: mode,
+      healthUrl: joinUrl(base, "/health/"),
+      dashboardUrl: joinUrl(base, "/"),
+      dashboardPath: "/",
+    };
+  }
+
+  function getServiceConfig() {
+    if (!serviceConfig) {
+      serviceConfig = resolveServiceConfig();
+    }
+
+    return serviceConfig;
+  }
+
+  function serviceStatusLabel(prefix) {
+    var config = getServiceConfig();
+    var label = prefix || "Checking";
+
+    if (config.mode === "local") {
+      return label + " local service at " + config.base + "…";
+    }
+
+    return label + " " + config.base.replace(/^https?:\/\//, "") + "…";
+  }
+
+  function openDashboard() {
+    var config = getServiceConfig();
+    var currentOrigin = normalizeBase(window.location.origin || "");
+
+    if (config.base === currentOrigin) {
+      window.location.replace(config.dashboardPath);
+      return;
+    }
+
+    window.location.replace(config.dashboardUrl);
+  }
+
+  function getAppMarker() {
+    return readMeta("control-addmylegacy");
   }
 
   function htmlContainsMarkers(html, markers) {
@@ -86,14 +184,8 @@
   }
 
   function getPollInterval() {
-    var body = document.body;
-    var value;
+    var value = parseInt(readBodyData("data-health-poll-seconds"), 10);
 
-    if (!body || !body.getAttribute) {
-      return pollMs;
-    }
-
-    value = parseInt(body.getAttribute("data-health-poll-seconds"), 10);
     if (!value || value < 1) {
       return pollMs;
     }
@@ -102,14 +194,8 @@
   }
 
   function getRefreshInterval() {
-    var body = document.body;
-    var value;
+    var value = parseInt(readBodyData("data-refresh-seconds"), 10);
 
-    if (!body || !body.getAttribute) {
-      return 0;
-    }
-
-    value = parseInt(body.getAttribute("data-refresh-seconds"), 10);
     if (!value || value < 1) {
       return 0;
     }
@@ -261,7 +347,7 @@
     }
   }
 
-  function fetchDashboardPage(onSuccess, onFailure) {
+  function fetchUrl(url, onSuccess, onFailure) {
     var xhr = createXhr();
 
     if (!xhr) {
@@ -269,7 +355,7 @@
       return;
     }
 
-    xhr.open("GET", DASHBOARD_PATH, true);
+    xhr.open("GET", url, true);
     xhr.timeout = 8000;
 
     xhr.onreadystatechange = function () {
@@ -281,7 +367,7 @@
 
       body = xhr.responseText || "";
 
-      if (isValidDashboardHtml(body)) {
+      if (xhr.status === 200) {
         onSuccess(body, xhr.status);
         return;
       }
@@ -306,6 +392,48 @@
     } catch (error) {
       onFailure("", 0);
     }
+  }
+
+  function fetchHealth(onSuccess, onFailure) {
+    var config = getServiceConfig();
+
+    fetchUrl(
+      config.healthUrl,
+      function (body) {
+        if (body.indexOf("ok") !== -1) {
+          onSuccess(body);
+          return;
+        }
+
+        if (isGatewayErrorHtml(body)) {
+          applyGatewayWaitingUi();
+        }
+
+        onFailure(body, 200);
+      },
+      onFailure
+    );
+  }
+
+  function fetchDashboardPage(onSuccess, onFailure) {
+    var config = getServiceConfig();
+
+    fetchUrl(
+      config.dashboardUrl,
+      function (body) {
+        if (isValidDashboardHtml(body)) {
+          onSuccess(body);
+          return;
+        }
+
+        if (isGatewayErrorHtml(body)) {
+          applyGatewayWaitingUi();
+        }
+
+        onFailure(body, 200);
+      },
+      onFailure
+    );
   }
 
   function clearRetryTimer() {
@@ -370,7 +498,7 @@
   function activateDashboardIfReady() {
     if (!isDashboardDocument()) {
       injectWaitingShell();
-      setUpdatingStatus("Still waiting — verifying dashboard page content…");
+      setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
       scheduleRetry(attemptShowDashboard);
       return;
     }
@@ -400,19 +528,27 @@
       return;
     }
 
-    setUpdatingStatus("Checking dashboard page content…");
+    setUpdatingStatus(serviceStatusLabel("Checking"));
 
-    fetchDashboardPage(
+    fetchHealth(
       function () {
-        setUpdatingStatus("Dashboard page verified. Loading…");
-        window.location.replace(DASHBOARD_PATH);
+        fetchDashboardPage(
+          function () {
+            setUpdatingStatus("Dashboard page verified. Loading…");
+            openDashboard();
+          },
+          function () {
+            setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
+            scheduleRetry(attemptShowDashboard);
+          }
+        );
       },
       function () {
         if (gatewayDetected || isGatewayErrorDocument()) {
           applyGatewayWaitingUi();
-          setUpdatingStatus("Gateway page detected — waiting for real dashboard…");
+          setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
         } else {
-          setUpdatingStatus("Still waiting for control dashboard…");
+          setUpdatingStatus(serviceStatusLabel("Still waiting for"));
         }
 
         scheduleRetry(attemptShowDashboard);
@@ -451,7 +587,7 @@
 
           setUpdatingVisible(true);
           applyGatewayWaitingUi();
-          setUpdatingStatus("Gateway page detected — waiting for real dashboard…");
+          setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
           scheduleRetry(attemptShowDashboard);
         }
       );
@@ -489,12 +625,13 @@
   function boot() {
     updatingEl = document.getElementById("tv-updating");
     rootEl = document.getElementById("tv-root");
+    serviceConfig = resolveServiceConfig();
 
     clearBrokenServiceWorkers();
 
     if (isGatewayErrorDocument()) {
       injectWaitingShell();
-      setUpdatingStatus("Gateway page detected — waiting for real dashboard…");
+      setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
       attemptShowDashboard();
       return;
     }
@@ -506,7 +643,7 @@
 
     if (!isDashboardDocument()) {
       injectWaitingShell();
-      setUpdatingStatus("Still waiting — verifying dashboard page content…");
+      setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
       attemptShowDashboard();
       return;
     }
@@ -516,7 +653,7 @@
     }
 
     setUpdatingVisible(true);
-    setUpdatingStatus("Checking dashboard page…");
+    setUpdatingStatus(serviceStatusLabel("Checking"));
     attemptShowDashboard();
   }
 

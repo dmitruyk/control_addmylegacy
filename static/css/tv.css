@@ -9,7 +9,6 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
 }
 
 html {
@@ -20,39 +19,9 @@ html {
   background-color: #0b0f14;
   background-image: radial-gradient(circle at top, #152033 0%, #0b0f14 55%);
   color: #f4f7fb;
-  cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
   font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden;
   -webkit-text-size-adjust: 100%;
-}
-
-.tv-body,
-.tv-body * {
-  cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
-}
-
-#tv-cursor-shield,
-#tv-cursor-shield-back {
-  background: transparent;
-  border: 0;
-  cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
-  height: 100%;
-  left: 0;
-  margin: 0;
-  opacity: 0.001;
-  padding: 0;
-  pointer-events: auto;
-  position: fixed;
-  top: 0;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  width: 100%;
-  z-index: 2147483646;
-}
-
-#tv-cursor-shield-back {
-  z-index: 2147483645;
 }
 
 .tv-shell {
@@ -624,19 +593,24 @@ html {
 }
 
 .tv-hud {
-  background: -webkit-linear-gradient(top, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.82) 100%);
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.35) 55%, rgba(0, 0, 0, 0) 100%);
   bottom: 0;
   box-sizing: border-box;
   left: 0;
-  padding: 40px 48px 36px;
+  padding: 0;
+  pointer-events: none;
   position: absolute;
   right: 0;
+  top: 0;
   z-index: 8;
 }
 
 .tv-hud-datetime {
-  max-width: 55%;
+  left: 48px;
+  max-width: 45%;
+  pointer-events: auto;
+  position: absolute;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
+  top: 36px;
 }
 
 .tv-hud-weekday {
@@ -672,23 +646,60 @@ html {
   margin-left: 10px;
 }
 
+.tv-hud-widgets {
+  bottom: 36px;
+  left: 48px;
+  pointer-events: none;
+  position: absolute;
+  right: 48px;
+  text-align: right;
+  z-index: 8;
+}
+
+.tv-hud-widget-stack {
+  display: inline-block;
+  max-width: 100%;
+  pointer-events: auto;
+  text-align: left;
+  vertical-align: bottom;
+}
+
+.tv-hud-earthquake {
+  margin-bottom: 16px;
+}
+
+.tv-hud-earthquake .tv-widget-card {
+  margin-left: 0;
+  width: 100%;
+}
+
 .tv-hud-weather {
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
-  -webkit-box-pack: end;
-  -webkit-justify-content: flex-end;
-  justify-content: flex-end;
+  width: 100%;
 }
 
+.tv-hud-weather .tv-widget-card {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1 1 220px;
+  flex: 1 1 220px;
+  margin-left: 16px;
+  min-width: 220px;
+}
+
+.tv-hud-weather .tv-widget-card:first-child {
+  margin-left: 0;
+}
+
+.tv-widget-card,
 .tv-weather-card {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  background: rgba(12, 18, 28, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(12, 18, 28, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   box-sizing: border-box;
-  margin-left: 16px;
   min-width: 220px;
   padding: 18px 20px 16px;
 }
@@ -745,7 +756,7 @@ html {
 }
 
 .tv-weather-hourly {
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
@@ -778,6 +789,112 @@ html {
   font-size: 14px;
   font-weight: 600;
   margin: 4px 0 0;
+}
+
+.tv-earthquake-card-recent {
+  background: rgba(68, 24, 16, 0.42);
+  border-color: rgba(251, 191, 36, 0.72);
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.18);
+}
+
+.tv-earthquake-current {
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  margin-bottom: 4px;
+}
+
+.tv-earthquake-current-recent .tv-earthquake-mag {
+  color: #fbbf24;
+}
+
+.tv-earthquake-mag {
+  color: #fff;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1;
+  margin: 0 14px 0 0;
+  min-width: 72px;
+  text-align: center;
+}
+
+.tv-earthquake-mag-calm {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.tv-earthquake-current-text {
+  min-width: 0;
+}
+
+.tv-earthquake-place {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+
+.tv-earthquake-list {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.tv-earthquake-item {
+  -webkit-box-align: start;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  margin-top: 10px;
+}
+
+.tv-earthquake-item:first-child {
+  margin-top: 0;
+}
+
+.tv-earthquake-item-recent {
+  background: rgba(251, 191, 36, 0.1);
+  border-radius: 12px;
+  margin-left: -8px;
+  margin-right: -8px;
+  padding: 8px;
+}
+
+.tv-earthquake-item-mag {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 10px 0 0;
+  min-width: 48px;
+}
+
+.tv-earthquake-item-recent .tv-earthquake-item-mag {
+  color: #fbbf24;
+}
+
+.tv-earthquake-item-text {
+  min-width: 0;
+}
+
+.tv-earthquake-item-place {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0 0 4px;
+}
+
+.tv-earthquake-item-time {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
 }
 
 .tv-info-panels {
@@ -817,8 +934,15 @@ html {
     left: 56px;
   }
 
-  .tv-hud {
-    padding: 48px 56px 42px;
+  .tv-hud-datetime {
+    left: 56px;
+    top: 42px;
+  }
+
+  .tv-hud-widgets {
+    bottom: 42px;
+    left: 56px;
+    right: 56px;
   }
 
   .tv-hud-weekday {
@@ -837,9 +961,16 @@ html {
     font-size: 34px;
   }
 
+  .tv-widget-card,
   .tv-weather-card {
     min-width: 260px;
     padding: 22px 24px 18px;
+  }
+
+  .tv-hud-weather .tv-widget-card {
+    -webkit-flex-basis: 260px;
+    flex-basis: 260px;
+    min-width: 260px;
   }
 
   .tv-weather-icon {
@@ -858,33 +989,57 @@ html {
   .tv-weather-hour-temp {
     font-size: 16px;
   }
+
+  .tv-earthquake-mag {
+    font-size: 46px;
+    min-width: 82px;
+  }
+
+  .tv-earthquake-place {
+    font-size: 20px;
+  }
 }
 
 @media screen and (max-width: 960px) {
-  .tv-hud {
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-    -webkit-flex-direction: column;
-    flex-direction: column;
-    -webkit-box-align: start;
-    -webkit-align-items: flex-start;
-    align-items: flex-start;
+  .tv-hud-datetime {
+    left: 24px;
+    max-width: 100%;
+    top: 24px;
   }
 
-  .tv-hud-datetime {
-    margin-bottom: 20px;
-    max-width: 100%;
+  .tv-hud-widgets {
+    bottom: 24px;
+    left: 24px;
+    right: 24px;
+  }
+
+  .tv-hud-widget-stack {
+    display: block;
+    width: 100%;
   }
 
   .tv-hud-weather {
-    -webkit-box-pack: start;
-    -webkit-justify-content: flex-start;
-    justify-content: flex-start;
+    -webkit-box-lines: multiple;
+    -webkit-flex-wrap: wrap;
+    flex-wrap: wrap;
   }
 
+  .tv-hud-weather .tv-widget-card {
+    margin-left: 0;
+    margin-top: 16px;
+    width: 100%;
+  }
+
+  .tv-hud-weather .tv-widget-card:first-child {
+    margin-top: 0;
+  }
+
+  .tv-widget-card,
   .tv-weather-card {
     margin-left: 0;
-    margin-right: 14px;
+    margin-right: 0;
+    min-width: 0;
+    width: 100%;
   }
 
   .tv-slide-caption {

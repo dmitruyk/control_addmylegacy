@@ -1,0 +1,49 @@
+<article class="tv-widget-card tv-weather-card tv-earthquake-card{% if earthquakes.has_recent %} tv-earthquake-card-recent{% endif %}">
+  <p class="tv-weather-city">Bay Area Earthquakes</p>
+
+  {% if earthquakes.is_available and earthquakes.events %}
+    {% with primary=earthquakes.events.0 %}
+    <div class="tv-earthquake-current{% if primary.is_recent %} tv-earthquake-current-recent{% endif %}">
+      <p class="tv-earthquake-mag" aria-label="Magnitude {{ primary.magnitude }}">
+        M{% if primary.magnitude is not None %}{{ primary.magnitude|floatformat:1 }}{% else %}—{% endif %}
+      </p>
+      <div class="tv-earthquake-current-text">
+        <p class="tv-earthquake-place">{{ primary.place }}</p>
+        <p class="tv-weather-label">{{ primary.time_label }}</p>
+      </div>
+    </div>
+    {% endwith %}
+
+    {% if earthquakes.events|length > 1 %}
+    <div class="tv-earthquake-list" aria-label="Recent Bay Area earthquakes">
+      {% for event in earthquakes.events|slice:"1:" %}
+      <div class="tv-earthquake-item{% if event.is_recent %} tv-earthquake-item-recent{% endif %}">
+        <p class="tv-earthquake-item-mag">
+          M{% if event.magnitude is not None %}{{ event.magnitude|floatformat:1 }}{% else %}—{% endif %}
+        </p>
+        <div class="tv-earthquake-item-text">
+          <p class="tv-earthquake-item-place">{{ event.place }}</p>
+          <p class="tv-earthquake-item-time">{{ event.time_label }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% elif earthquakes.is_available %}
+    <div class="tv-earthquake-current">
+      <p class="tv-earthquake-mag tv-earthquake-mag-calm" aria-hidden="true">M—</p>
+      <div class="tv-earthquake-current-text">
+        <p class="tv-earthquake-place">No significant activity</p>
+        <p class="tv-weather-label">M2.5+ in the last 30 days</p>
+      </div>
+    </div>
+  {% else %}
+    <div class="tv-earthquake-current">
+      <p class="tv-earthquake-mag tv-earthquake-mag-calm" aria-hidden="true">M—</p>
+      <div class="tv-earthquake-current-text">
+        <p class="tv-earthquake-place">Earthquake feed unavailable</p>
+        <p class="tv-weather-label">USGS data temporarily offline</p>
+      </div>
+    </div>
+  {% endif %}
+</article>

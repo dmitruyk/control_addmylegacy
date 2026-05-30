@@ -9,16 +9,14 @@
   <meta name="description" content="{{ SITE_NAME }} — art gallery display for AddMyLegacy.">
   <meta name="aml-static-build" content="{{ STATIC_BUILD_ID }}">
   <meta name="control-addmylegacy" content="tv-dashboard">
-  <style id="tv-cursor-inline">
-    html, body, html *, body * {
-      cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
-    }
-  </style>
+  <meta name="aml-service-url" content="{{ SERVICE_BASE_URL }}">
+  <meta name="aml-service-mode" content="{{ SERVICE_MODE }}">
   <link rel="stylesheet" href="{% static 'css/tv.css' %}?v={{ STATIC_BUILD_ID }}">
-  <script src="{% static 'js/tv-cursor.js' %}?v={{ STATIC_BUILD_ID }}"></script>
 </head>
 <body
   class="tv-body tv-body-gallery"
+  data-service-base="{{ SERVICE_BASE_URL }}"
+  data-service-mode="{{ SERVICE_MODE }}"
   data-refresh-seconds="{{ refresh_seconds|default:0 }}"
   data-health-poll-seconds="{{ TV_HEALTH_POLL_SECONDS }}"
   data-slide-duration="{{ display_config.slide_duration_seconds }}"
@@ -44,10 +42,18 @@
         <p class="tv-hud-time" id="tv-hud-time">{{ now|date:"g:i" }}<span class="tv-hud-ampm" id="tv-hud-ampm">{{ now|date:"A" }}</span></p>
       </div>
 
-      <div class="tv-hud-weather">
-        {% for item in weather %}
-        {% include "partials/tv_weather_card.html" with item=item %}
-        {% endfor %}
+      <div class="tv-hud-widgets">
+        <div class="tv-hud-widget-stack">
+          <div class="tv-hud-earthquake">
+            {% include "partials/tv_earthquake_card.html" %}
+          </div>
+
+          <div class="tv-hud-weather">
+            {% for item in weather %}
+            {% include "partials/tv_weather_card.html" with item=item %}
+            {% endfor %}
+          </div>
+        </div>
       </div>
     </div>
 

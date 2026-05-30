@@ -5,13 +5,14 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="control-addmylegacy" content="wait-page">
+  <meta name="aml-service-url" content="{{ SERVICE_BASE_URL }}">
+  <meta name="aml-service-mode" content="{{ SERVICE_MODE }}">
   <title>{{ SITE_NAME }} — Still waiting</title>
   <style>
     html, body {
       height: 100%;
       margin: 0;
       padding: 0;
-      cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
     }
 
     body {
@@ -20,10 +21,6 @@
       color: #f4f7fb;
       font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow: hidden;
-    }
-
-    body, body * {
-      cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
     }
 
     .tv-updating {
@@ -94,7 +91,11 @@
     }
   </style>
 </head>
-<body data-health-poll-seconds="{{ poll_seconds }}">
+<body
+  data-service-base="{{ SERVICE_BASE_URL }}"
+  data-service-mode="{{ SERVICE_MODE }}"
+  data-health-poll-seconds="{{ poll_seconds }}"
+>
   <main id="tv-updating" class="tv-updating" role="main" aria-live="polite" aria-busy="true">
     <p class="tv-updating-badge" id="tv-updating-badge">Synology gateway</p>
     <div class="tv-updating-mark" aria-hidden="true">AML</div>

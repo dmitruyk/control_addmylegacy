@@ -11,7 +11,6 @@
       height: 100%;
       margin: 0;
       padding: 0;
-      cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important;
     }
 
     body {
@@ -20,19 +19,6 @@
       color: #f4f7fb;
       font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow: hidden;
-    }
-
-    body, body * { cursor: url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), none !important; }
-
-    #tv-cursor-shield {
-      background: transparent;
-      height: 100%;
-      left: 0;
-      pointer-events: auto;
-      position: fixed;
-      top: 0;
-      width: 100%;
-      z-index: 2147483646;
     }
 
     .tv-updating-shell {
@@ -120,19 +106,40 @@
     <p class="tv-updating-message" id="tv-updating-message">The control dashboard is restarting. This page will load automatically when the service is ready.</p>
     <p class="tv-updating-meta" id="tv-updating-status">Checking service status…</p>
   </main>
-  <div id="tv-cursor-shield" aria-hidden="true" tabindex="-1"></div>
 
   <script>
     (function () {
       "use strict";
 
-      var HEALTH_PATH = "/health/";
       var POLL_MS = 3000;
       var synologyDetected = false;
       var shellEl = document.getElementById("tv-updating-shell");
       var titleEl = document.getElementById("tv-updating-title");
       var messageEl = document.getElementById("tv-updating-message");
       var statusEl = document.getElementById("tv-updating-status");
+      var LOCAL_HOSTS = { localhost: true, "127.0.0.1": true, "0.0.0.0": true };
+
+      function resolveServiceConfig() {
+        var hostname = window.location.hostname || "";
+        var origin = (window.location.origin || "").replace(/\/+$/, "");
+        var configuredBase = "";
+        var meta = document.querySelector('meta[name="aml-service-url"]');
+        if (meta && meta.getAttribute) configuredBase = (meta.getAttribute("content") || "").trim();
+        if (LOCAL_HOSTS[hostname.toLowerCase()]) {
+          return { base: origin, mode: "local", healthUrl: origin + "/health/", dashboardUrl: origin + "/" };
+        }
+        if (configuredBase) {
+          configuredBase = configuredBase.replace(/\/+$/, "");
+          return { base: configuredBase, mode: "production", healthUrl: configuredBase + "/health/", dashboardUrl: configuredBase + "/" };
+        }
+        return { base: origin, mode: "production", healthUrl: origin + "/health/", dashboardUrl: origin + "/" };
+      }
+
+      function serviceStatusLabel(prefix) {
+        var config = resolveServiceConfig();
+        if (config.mode === "local") return (prefix || "Checking") + " local service at " + config.base + "…";
+        return (prefix || "Checking") + " " + config.base.replace(/^https?:\/\//, "") + "…";
+      }
 
       var SYNOLOGY_MARKERS = ["synology", "diskstation", "dsm ", "webstation", "bad gateway", "service unavailable", "404", "not found", "page not found", "page cannot be found"];
 
@@ -179,13 +186,14 @@
       }
 
       function fetchDashboardPage(onSuccess, onFailure) {
+        var config = resolveServiceConfig();
         var xhr = createXhr();
         if (!xhr) {
           onFailure("", 0);
           return;
         }
 
-        xhr.open("GET", "/", true);
+        xhr.open("GET", config.dashboardUrl, true);
         xhr.timeout = 8000;
         xhr.onreadystatechange = function () {
           var body;
@@ -227,11 +235,11 @@
       }
 
       applySynologyUi(true);
-      setStatus(false);
+      if (statusEl) statusEl.textContent = serviceStatusLabel("Checking");
       fetchDashboardPage(function () {
-        setStatus(false);
+        var config = resolveServiceConfig();
         if (statusEl) statusEl.textContent = "Dashboard page verified. Loading…";
-        window.location.href = "/";
+        window.location.href = config.dashboardUrl;
       }, function () {});
     })();
   </script>

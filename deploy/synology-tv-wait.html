@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="control-addmylegacy" content="synology-wait-page">
-  <title>Synology — waiting for dashboard</title>
+  <meta name="control-addmylegacy" content="wait-page">
+  <title>Still waiting for dashboard</title>
   <style>
     html, body { height: 100%; margin: 0; background: #0b0f14; color: #f4f7fb; font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     .shell { align-items: center; display: flex; flex-direction: column; height: 100%; justify-content: center; padding: 48px; text-align: center; }
@@ -16,39 +16,74 @@
 </head>
 <body>
   <main class="shell">
-    <p class="badge">Synology NAS gateway</p>
+    <p class="badge">Gateway</p>
     <h1>Still waiting for control dashboard</h1>
-    <p>The Synology NAS is reachable. Waiting for the Docker container to respond.</p>
+    <p>The dashboard will load automatically when the real service page is available.</p>
     <p class="meta" id="status">Checking service…</p>
   </main>
   <script>
     (function () {
       "use strict";
-      var HEALTH_URL = "https://control.addmylegacy.com/health/";
-      var HOME_URL = "https://control.addmylegacy.com/";
       var POLL_MS = 3000;
       var statusEl = document.getElementById("status");
+      var LOCAL_HOSTS = { localhost: true, "127.0.0.1": true, "0.0.0.0": true };
+
+      function resolveServiceConfig() {
+        var hostname = window.location.hostname || "";
+        var origin = (window.location.origin || "").replace(/\/+$/, "");
+        if (LOCAL_HOSTS[hostname.toLowerCase()]) {
+          return { base: origin, mode: "local", healthUrl: origin + "/health/", dashboardUrl: origin + "/" };
+        }
+        return { base: origin, mode: "production", healthUrl: origin + "/health/", dashboardUrl: origin + "/" };
+      }
 
       function setStatus(text) {
         if (statusEl) statusEl.textContent = text;
       }
 
+      function isValidDashboardHtml(html) {
+        var text = String(html || "").toLowerCase();
+        return text.indexOf('name="control-addmylegacy" content="tv-dashboard"') !== -1 &&
+          text.indexOf('id="tv-root"') !== -1 &&
+          text.indexOf('id="tv-slides-data"') !== -1;
+      }
+
       function tick() {
+        var config = resolveServiceConfig();
         var xhr = new XMLHttpRequest();
-        xhr.open("GET", HEALTH_URL, true);
+        xhr.open("GET", config.healthUrl, true);
         xhr.timeout = 4000;
         xhr.onreadystatechange = function () {
           if (xhr.readyState !== 4) return;
           if (xhr.status === 200 && xhr.responseText && xhr.responseText.indexOf("ok") !== -1) {
-            setStatus("Service is ready. Opening dashboard…");
-            window.location.href = HOME_URL;
+            var dashXhr = new XMLHttpRequest();
+            dashXhr.open("GET", config.dashboardUrl, true);
+            dashXhr.onreadystatechange = function () {
+              if (dashXhr.readyState !== 4) return;
+              if (isValidDashboardHtml(dashXhr.responseText || "")) {
+                setStatus("Dashboard page verified. Loading…");
+                window.location.href = config.dashboardUrl;
+                return;
+              }
+              setStatus("Still waiting — verifying dashboard at " + config.base + "…");
+              window.setTimeout(tick, POLL_MS);
+            };
+            dashXhr.send();
             return;
           }
-          setStatus("Synology gateway — container still starting…");
+          setStatus(config.mode === "local"
+            ? "Checking local service at " + config.base + "…"
+            : "Checking " + config.base.replace(/^https?:\/\//, "") + "…");
           window.setTimeout(tick, POLL_MS);
         };
-        xhr.onerror = function () { setStatus("Synology gateway — container still starting…"); window.setTimeout(tick, POLL_MS); };
-        xhr.ontimeout = function () { setStatus("Synology gateway — container still starting…"); window.setTimeout(tick, POLL_MS); };
+        xhr.onerror = function () {
+          setStatus("Still waiting for service at " + config.base + "…");
+          window.setTimeout(tick, POLL_MS);
+        };
+        xhr.ontimeout = function () {
+          setStatus("Still waiting for service at " + config.base + "…");
+          window.setTimeout(tick, POLL_MS);
+        };
         xhr.send();
       }
 
