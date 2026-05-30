@@ -85,7 +85,7 @@ Optional: set `TV_MAINTENANCE_MODE=true` in `.env` before a restart to redirect 
 
 ## Art gallery
 
-12 city/nature photographs ship in `static/art/slides/` (1920×1080). The slideshow crossfades smoothly; duration and transition are configurable in **Admin → TV display configuration**.
+26 city/nature photographs ship in `static/art/slides/` (1920×1080). The slideshow crossfades smoothly; duration and transition are configurable in **Admin → TV display configuration**.
 
 **Admin → Art slides** controls which images are active and their order.
 

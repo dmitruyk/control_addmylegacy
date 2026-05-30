@@ -132,7 +132,7 @@ class SiteUrlTests(TestCase):
         self.assertNotContains(response, "tv-info-panels")
 
         slides = self._parse_slides_json(response.content.decode())
-        self.assertEqual(len(slides), 12)
+        self.assertEqual(len(slides), 26)
         self.assertIn(".jpg", slides[0]["url"])
         self.assertIn("city-new-york.jpg", slides[0]["url"])
 
