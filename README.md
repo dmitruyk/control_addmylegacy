@@ -113,7 +113,8 @@ The page is built for that engine:
 | Clock | `Intl.DateTimeFormat` with manual date/time fallback |
 | Refresh | `<meta http-equiv="refresh">` + JS `location.reload()` backup |
 | Deploy | In-page waiting overlay via `tv-boot.js` until dashboard verified |
-| Assets | `tv.css` + `tv-boot.js` + `tv-clock.js` + `tv-slideshow.js` — no Tailwind, no CDN scripts |
+| Assets | `tv.css` + `tv-boot.js` + `tv-theme.js` + `tv-clock.js` + `tv-slideshow.js` — no Tailwind, no CDN scripts |
+| Brightness | Always **Auto** via `tv-theme.js` — day 7:00–19:00 **San Francisco** (`America/Los_Angeles`), night otherwise. No manual override. Actual panel brightness is Samsung **Eco Solution → Ambient Light Detection**, not the webpage |
 | No-JS | Server-rendered date/time still visible via `<noscript>` |
 
 Point the Samsung TV browser to `https://control.addmylegacy.com`. Typography scales at 1600px+ and 2560px+ breakpoints for 10-foot viewing.

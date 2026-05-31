@@ -43,6 +43,17 @@ def _page_refresh_seconds(display_config, slide_count: int) -> int:
     return max(configured, full_cycle)
 
 
+TV_THEME_DAY_START_HOUR = 7
+TV_THEME_DAY_END_HOUR = 19
+
+
+def _theme_brightness(local_moment) -> str:
+    hour = local_moment.hour
+    if TV_THEME_DAY_START_HOUR <= hour < TV_THEME_DAY_END_HOUR:
+        return "day"
+    return "night"
+
+
 def _dashboard_context(request):
     display_config = TvDisplayConfig.load()
     now = timezone.localtime(timezone.now())
@@ -59,6 +70,8 @@ def _dashboard_context(request):
 
     return {
         "now": now,
+        "theme_brightness": _theme_brightness(now),
+        "TIME_ZONE": settings.TIME_ZONE,
         "refresh_seconds": _page_refresh_seconds(display_config, len(slides)),
         "display_config": display_config,
         "slides": slides,

@@ -14,7 +14,11 @@
   <link rel="stylesheet" href="{% static 'css/tv.css' %}?v={{ STATIC_BUILD_ID }}">
 </head>
 <body
-  class="tv-body tv-body-gallery"
+  class="tv-body tv-body-gallery tv-kiosk theme-auto"
+  data-theme-timezone="{{ TIME_ZONE }}"
+  data-theme-day-start="7"
+  data-theme-day-end="19"
+  data-brightness="{{ theme_brightness }}"
   data-service-base="{{ SERVICE_BASE_URL }}"
   data-service-mode="{{ SERVICE_MODE }}"
   data-refresh-seconds="{{ refresh_seconds|default:0 }}"
@@ -77,6 +81,7 @@
 
   {{ slides|json_script:"tv-slides-data" }}
 
+  <script src="{% static 'js/tv-theme.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-boot.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-slideshow.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-clock.js' %}?v={{ STATIC_BUILD_ID }}"></script>

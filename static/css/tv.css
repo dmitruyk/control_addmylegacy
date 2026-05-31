@@ -2,6 +2,10 @@
  * TV dashboard — Samsung Q6F QLED 2018 (Tizen 4.0, Chromium M56).
  * Avoid CSS Grid (Chrome 57+) and flex gap (Chrome 84+).
  * Layout uses flexbox + margins only; colors use literal fallbacks.
+ *
+ * Panel brightness is controlled by Samsung TV Settings → General → Eco
+ * Solution (Ambient Light Detection / Energy Saving), not by this stylesheet.
+ * Theme classes below only adjust on-screen colors for time-of-day comfort.
  */
 
 html,
@@ -15,13 +19,93 @@ html {
   font-size: 16px;
 }
 
+/* Shared theme tokens (literal fallbacks for M56) */
 .tv-body {
+  --bg-color: #0b0f14;
+  --text-color: #f4f7fb;
+  --card-bg: rgba(12, 18, 28, 0.72);
+  --accent-color: #4fd1c5;
+  --brightness-filter: brightness(0.94);
+  --hud-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
+  --card-border: rgba(255, 255, 255, 0.14);
+  --muted-color: rgba(255, 255, 255, 0.72);
   background-color: #0b0f14;
+  background-color: var(--bg-color);
   background-image: radial-gradient(circle at top, #152033 0%, #0b0f14 55%);
   color: #f4f7fb;
+  color: var(--text-color);
   font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden;
   -webkit-text-size-adjust: 100%;
+  -webkit-filter: brightness(0.94);
+  filter: brightness(0.94);
+  -webkit-filter: var(--brightness-filter);
+  filter: var(--brightness-filter);
+  -webkit-transition: background-color 0.35s ease, color 0.35s ease, -webkit-filter 0.35s ease;
+  transition: background-color 0.35s ease, color 0.35s ease, filter 0.35s ease;
+}
+
+.tv-body.theme-day {
+  --bg-color: #e8edf4;
+  --text-color: #0b1628;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --accent-color: #0d9488;
+  --brightness-filter: brightness(1);
+  --hud-shadow: 0 2px 12px rgba(255, 255, 255, 0.85);
+  --card-border: rgba(11, 22, 40, 0.12);
+  --muted-color: rgba(11, 22, 40, 0.68);
+  background-image: radial-gradient(circle at top, #f8fafc 0%, #e8edf4 55%);
+}
+
+.tv-body.theme-night {
+  --bg-color: #06080c;
+  --text-color: #eef2f7;
+  --card-bg: rgba(8, 12, 18, 0.82);
+  --accent-color: #4fd1c5;
+  --brightness-filter: brightness(0.88);
+  --hud-shadow: 0 2px 20px rgba(0, 0, 0, 0.82);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --muted-color: rgba(255, 255, 255, 0.66);
+  background-image: radial-gradient(circle at top, #101620 0%, #06080c 55%);
+}
+
+.tv-body.theme-auto[data-brightness="day"] {
+  --bg-color: #e8edf4;
+  --text-color: #0b1628;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --accent-color: #0d9488;
+  --brightness-filter: brightness(1);
+  --hud-shadow: 0 2px 12px rgba(255, 255, 255, 0.85);
+  --card-border: rgba(11, 22, 40, 0.12);
+  --muted-color: rgba(11, 22, 40, 0.68);
+  background-image: radial-gradient(circle at top, #f8fafc 0%, #e8edf4 55%);
+}
+
+.tv-body.theme-auto[data-brightness="night"] {
+  --bg-color: #06080c;
+  --text-color: #eef2f7;
+  --card-bg: rgba(8, 12, 18, 0.82);
+  --accent-color: #4fd1c5;
+  --brightness-filter: brightness(0.88);
+  --hud-shadow: 0 2px 20px rgba(0, 0, 0, 0.82);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --muted-color: rgba(255, 255, 255, 0.66);
+  background-image: radial-gradient(circle at top, #101620 0%, #06080c 55%);
+}
+
+/* TV / kiosk: full viewport, no scroll, 10-foot typography */
+.tv-kiosk {
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  width: 100%;
+}
+
+.tv-kiosk .tv-gallery,
+.tv-kiosk .tv-updating {
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
 }
 
 .tv-shell {
@@ -164,7 +248,9 @@ html {
 
 .tv-panel-inner {
   background-color: #141b24;
+  background-color: var(--card-bg);
   border: 1px solid #243041;
+  border-color: var(--card-border);
   border-radius: 20px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
@@ -217,6 +303,7 @@ html {
 
 .tv-link {
   color: #4fd1c5;
+  color: var(--accent-color);
   text-decoration: none;
 }
 
@@ -252,6 +339,7 @@ html {
   -webkit-align-items: center;
   align-items: center;
   background-color: #0b0f14;
+  background-color: var(--bg-color);
   background-image: radial-gradient(circle at top, #152033 0%, #0b0f14 55%);
   box-sizing: border-box;
   display: none;
@@ -310,6 +398,7 @@ html {
 
 .tv-updating-message {
   color: #4fd1c5;
+  color: var(--accent-color);
   font-size: 32px;
   line-height: 1.4;
   margin: 0 0 16px;
@@ -449,8 +538,12 @@ html {
 }
 
 @media screen and (max-width: 960px) {
-  .tv-body {
+  .tv-body:not(.tv-kiosk) {
     overflow-y: auto;
+  }
+
+  .tv-kiosk {
+    overflow: hidden;
   }
 
   .tv-shell {
@@ -522,6 +615,29 @@ html {
   background-color: #000;
   background-image: none;
   overflow: hidden;
+  -webkit-filter: none;
+  filter: none;
+}
+
+/* Gallery keeps photos unfiltered; HUD/widgets inherit theme brightness */
+.tv-body-gallery .tv-hud,
+.tv-body-gallery .tv-info-panels {
+  -webkit-filter: brightness(0.94);
+  filter: brightness(0.94);
+  -webkit-filter: var(--brightness-filter);
+  filter: var(--brightness-filter);
+}
+
+.tv-body-gallery.theme-day .tv-hud-datetime,
+.tv-body-gallery.theme-auto[data-brightness="day"] .tv-hud-datetime {
+  text-shadow: 0 2px 12px rgba(255, 255, 255, 0.92);
+}
+
+.tv-body-gallery.theme-night .tv-hud-datetime,
+.tv-body-gallery.theme-auto[data-brightness="night"] .tv-hud-datetime,
+.tv-body-gallery .tv-hud-datetime {
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
+  text-shadow: var(--hud-shadow);
 }
 
 .tv-gallery {
@@ -610,12 +726,14 @@ html {
   pointer-events: auto;
   position: absolute;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
+  text-shadow: var(--hud-shadow);
   top: 36px;
 }
 
 .tv-hud-weekday {
   color: rgba(255, 255, 255, 0.78);
-  font-size: 22px;
+  color: var(--muted-color);
+  font-size: 24px;
   font-weight: 600;
   letter-spacing: 0.16em;
   margin: 0 0 8px;
@@ -624,7 +742,8 @@ html {
 
 .tv-hud-date {
   color: #fff;
-  font-size: 34px;
+  color: var(--text-color);
+  font-size: 38px;
   font-weight: 600;
   line-height: 1.15;
   margin: 0 0 10px;
@@ -632,7 +751,8 @@ html {
 
 .tv-hud-time {
   color: #fff;
-  font-size: 72px;
+  color: var(--text-color);
+  font-size: 80px;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1;
@@ -641,7 +761,8 @@ html {
 
 .tv-hud-ampm {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 28px;
+  color: var(--muted-color);
+  font-size: 32px;
   font-weight: 600;
   margin-left: 10px;
 }
@@ -696,17 +817,20 @@ html {
 .tv-weather-card {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  background: rgba(12, 18, 28, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(12, 18, 28, 0.72);
+  background: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-color: var(--card-border);
   border-radius: 20px;
   box-sizing: border-box;
-  min-width: 220px;
-  padding: 18px 20px 16px;
+  min-width: 240px;
+  padding: 20px 22px 18px;
 }
 
 .tv-weather-city {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 13px;
+  color: var(--muted-color);
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.14em;
   margin: 0 0 12px;
@@ -743,7 +867,8 @@ html {
 
 .tv-weather-temp {
   color: #fff;
-  font-size: 38px;
+  color: var(--text-color);
+  font-size: 42px;
   font-weight: 700;
   line-height: 1;
   margin: 0 0 4px;
@@ -751,7 +876,8 @@ html {
 
 .tv-weather-label {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 15px;
+  color: var(--muted-color);
+  font-size: 18px;
   margin: 0;
 }
 
@@ -777,7 +903,8 @@ html {
 
 .tv-weather-hour-time {
   color: rgba(255, 255, 255, 0.58);
-  font-size: 12px;
+  color: var(--muted-color);
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.04em;
   margin: 0 0 6px;
@@ -786,7 +913,8 @@ html {
 
 .tv-weather-hour-temp {
   color: rgba(255, 255, 255, 0.92);
-  font-size: 14px;
+  color: var(--text-color);
+  font-size: 17px;
   font-weight: 600;
   margin: 4px 0 0;
 }
@@ -831,7 +959,8 @@ html {
 
 .tv-earthquake-place {
   color: #fff;
-  font-size: 18px;
+  color: var(--text-color);
+  font-size: 20px;
   font-weight: 600;
   line-height: 1.25;
   margin: 0 0 6px;
@@ -906,7 +1035,9 @@ html {
 
 .tv-info-card {
   background: rgba(0, 0, 0, 0.55);
+  background: var(--card-bg);
   border: 1px solid rgba(255, 255, 255, 0.16);
+  border-color: var(--card-border);
   border-radius: 14px;
   margin-bottom: 12px;
   padding: 14px 18px;
@@ -922,7 +1053,8 @@ html {
 
 .tv-info-value {
   color: #fff;
-  font-size: 16px;
+  color: var(--text-color);
+  font-size: 18px;
   font-weight: 600;
   margin: 0;
 }

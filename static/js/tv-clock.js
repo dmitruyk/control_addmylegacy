@@ -1,8 +1,11 @@
 /**
  * HUD date/time for TV gallery (Tizen M56 / ES5).
+ * Uses San Francisco / Bay Area timezone from data-theme-timezone on body.
  */
 (function () {
   "use strict";
+
+  var DEFAULT_TIME_ZONE = "America/Los_Angeles";
 
   var weekdays = [
     "Sunday",
@@ -33,6 +36,15 @@
   var dateEl = null;
   var timeEl = null;
   var ampmEl = null;
+  var timeZone = DEFAULT_TIME_ZONE;
+
+  function readTimeZone() {
+    var bodyEl = document.body;
+
+    if (bodyEl && bodyEl.getAttribute) {
+      timeZone = bodyEl.getAttribute("data-theme-timezone") || DEFAULT_TIME_ZONE;
+    }
+  }
 
   function pad2(value) {
     return value < 10 ? "0" + value : String(value);
@@ -41,7 +53,7 @@
   function formatWeekday(date) {
     if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
       try {
-        return new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(date);
+        return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: timeZone }).format(date);
       } catch (error) {
         /* fallback below */
       }
@@ -52,7 +64,8 @@
   function formatDate(date) {
     if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
       try {
-        return new Intl.DateTimeFormat(undefined, {
+        return new Intl.DateTimeFormat("en-US", {
+          timeZone: timeZone,
           month: "long",
           day: "numeric",
           year: "numeric",
@@ -66,6 +79,30 @@
   }
 
   function formatClock(date) {
+    var formatted;
+    var match;
+
+    if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
+      try {
+        formatted = new Intl.DateTimeFormat("en-US", {
+          timeZone: timeZone,
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }).format(date);
+        match = formatted.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+
+        if (match) {
+          return {
+            time: match[1] + ":" + match[2],
+            ampm: match[3].toUpperCase(),
+          };
+        }
+      } catch (error) {
+        /* fallback below */
+      }
+    }
+
     var hours = date.getHours();
     var minutes = date.getMinutes();
     var period = hours >= 12 ? "PM" : "AM";
@@ -137,6 +174,7 @@
       return;
     }
 
+    readTimeZone();
     tick();
     window.setInterval(tick, 1000);
     scheduleRefresh();
