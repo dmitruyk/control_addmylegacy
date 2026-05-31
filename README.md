@@ -59,7 +59,7 @@ make run-docker
 5. Point nginx subdomain `control.addmylegacy.com` at the container (see `deploy/nginx.control.example.conf`)
 6. Install the offline placeholder: `make deploy-placeholder` (copy `deploy/updating.html` to nginx host)
 7. Bump `STATIC_BUILD_ID` on each deploy to refresh TV browser cache
-8. Set `TV_REFRESH_SECONDS` (default 60) for live dashboard reload; use `0` to disable
+8. Set `TV_REFRESH_SECONDS` (default 60) for live dashboard reload; use `0` to disable. The page waits at least one full slideshow cycle before reloading, so long slide durations still advance.
 9. Set `TV_HEALTH_POLL_SECONDS` (default 3) for deploy recovery polling
 
 ## Waiting during deploy

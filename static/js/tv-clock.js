@@ -103,21 +103,28 @@
     setText(ampmEl, clock.ampm);
   }
 
-  function scheduleRefresh() {
+  function readPositiveIntAttr(name, fallback) {
     var bodyEl = document.body;
-    var refreshSeconds = 0;
+    var value = bodyEl && bodyEl.getAttribute ? parseInt(bodyEl.getAttribute(name), 10) : NaN;
 
-    if (bodyEl && bodyEl.getAttribute) {
-      refreshSeconds = parseInt(bodyEl.getAttribute("data-refresh-seconds"), 10);
+    if (isNaN(value) || value < 1) {
+      return fallback || 0;
     }
 
-    if (!refreshSeconds || refreshSeconds < 1) {
+    return value;
+  }
+
+  function scheduleRefresh() {
+    var refreshSeconds = readPositiveIntAttr("data-refresh-seconds", 0);
+    var slideDurationSeconds = readPositiveIntAttr("data-slide-duration", 12);
+
+    if (!refreshSeconds) {
       return;
     }
 
     window.setTimeout(function () {
       window.location.reload();
-    }, refreshSeconds * 1000);
+    }, Math.max(refreshSeconds, slideDurationSeconds) * 1000);
   }
 
   function start() {

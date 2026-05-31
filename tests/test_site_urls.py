@@ -136,6 +136,24 @@ class SiteUrlTests(TestCase):
         self.assertIn(".jpg", slides[0]["url"])
         self.assertIn("city-new-york.jpg", slides[0]["url"])
 
+    @patch("core.views.bay_area_earthquakes")
+    @patch("core.views.bay_area_weather")
+    def test_page_refresh_waits_for_full_slideshow_cycle(self, mock_weather, mock_earthquakes):
+        from core.models import TvDisplayConfig
+
+        mock_weather.return_value = _sample_weather()
+        mock_earthquakes.return_value = _sample_earthquakes(recent=False)
+
+        config = TvDisplayConfig.load()
+        config.slide_duration_seconds = 120
+        config.save()
+
+        with self.settings(TV_REFRESH_SECONDS=60):
+            response = self.client.get(reverse("core:tv_dashboard"))
+
+        self.assertContains(response, 'data-slide-duration="120"')
+        self.assertContains(response, 'data-refresh-seconds="3120"')
+
     def _parse_slides_json(self, html: str) -> list:
         import json
         import re

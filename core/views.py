@@ -33,6 +33,16 @@ def _slide_url(request, static_path: str) -> str:
     return url
 
 
+def _page_refresh_seconds(display_config, slide_count: int) -> int:
+    configured = getattr(settings, "TV_REFRESH_SECONDS", 0) or 0
+    if configured < 1:
+        return 0
+
+    slide_duration = display_config.slide_duration_seconds or 12
+    full_cycle = slide_duration * max(slide_count, 1)
+    return max(configured, full_cycle)
+
+
 def _dashboard_context(request):
     display_config = TvDisplayConfig.load()
     now = timezone.localtime(timezone.now())
@@ -49,7 +59,7 @@ def _dashboard_context(request):
 
     return {
         "now": now,
-        "refresh_seconds": settings.TV_REFRESH_SECONDS,
+        "refresh_seconds": _page_refresh_seconds(display_config, len(slides)),
         "display_config": display_config,
         "slides": slides,
         "weather": bay_area_weather(),
