@@ -12,6 +12,7 @@
   var serviceConfig = null;
   var overlayShownAt = 0;
   var networkFailureHint = false;
+  var remoteVerificationRequired = false;
 
   var LOCAL_HOSTS = {
     localhost: true,
@@ -302,12 +303,21 @@
     return updatingEl ? updatingEl.getElementsByClassName("tv-updating-meta")[0] : null;
   }
 
+  function requireRemoteVerification() {
+    remoteVerificationRequired = true;
+  }
+
+  function confirmServiceAvailable() {
+    remoteVerificationRequired = false;
+  }
+
   function applyGatewayWaitingUi() {
     var badgeEl;
     var titleEl;
     var messageEl;
 
     gatewayDetected = true;
+    requireRemoteVerification();
 
     if (!updatingEl) {
       return;
@@ -434,16 +444,23 @@
       if (xhr.status === 0) {
         networkFailureHint = true;
       }
+
+      if (xhr.status !== 200) {
+        requireRemoteVerification();
+      }
+
       onFailure(body, xhr.status);
     };
 
     xhr.onerror = function () {
       networkFailureHint = true;
+      requireRemoteVerification();
       onFailure("", 0);
     };
 
     xhr.ontimeout = function () {
       networkFailureHint = true;
+      requireRemoteVerification();
       onFailure("", 0);
     };
 
@@ -469,6 +486,7 @@
           applyGatewayWaitingUi();
         }
 
+        requireRemoteVerification();
         onFailure(body, 200);
       },
       onFailure
@@ -490,6 +508,7 @@
           applyGatewayWaitingUi();
         }
 
+        requireRemoteVerification();
         onFailure(body, 200);
       },
       onFailure
@@ -547,6 +566,13 @@
   }
 
   function handleRecoveredDashboardHtml(html) {
+    if (!isValidDashboardHtml(html)) {
+      requireRemoteVerification();
+      return false;
+    }
+
+    confirmServiceAvailable();
+
     if (shouldReloadForHtml(html)) {
       reloadDashboard();
       return true;
@@ -563,6 +589,47 @@
     }
 
     return false;
+  }
+
+  function verifyServiceReady(onVerified, onStillWaiting) {
+    fetchHealth(
+      function () {
+        fetchDashboardPage(
+          function (html) {
+            if (!isValidDashboardHtml(html)) {
+              requireRemoteVerification();
+              if (onStillWaiting) {
+                onStillWaiting();
+              }
+              return;
+            }
+
+            confirmServiceAvailable();
+            onVerified(html);
+          },
+          function () {
+            requireRemoteVerification();
+            if (onStillWaiting) {
+              onStillWaiting();
+            }
+          }
+        );
+      },
+      function () {
+        requireRemoteVerification();
+
+        if (gatewayDetected || isGatewayErrorDocument()) {
+          applyGatewayWaitingUi();
+          setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
+        } else {
+          setUpdatingStatus(serviceStatusLabel("Still waiting for"));
+        }
+
+        if (onStillWaiting) {
+          onStillWaiting();
+        }
+      }
+    );
   }
 
   function recoverFromStuckOverlay() {
@@ -638,29 +705,26 @@
     setUpdatingVisible(true);
     recoverFromStuckOverlay();
 
-    if (isDashboardDocument() && isDashboardReady()) {
+    if (isDashboardDocument() && isDashboardReady() && !remoteVerificationRequired) {
       setUpdatingStatus("Dashboard page ready.");
       revealDashboard();
       return;
     }
 
     if (isDashboardDocument()) {
-      setUpdatingStatus("Still waiting — preparing gallery…");
+      setUpdatingStatus(
+        remoteVerificationRequired
+          ? serviceStatusLabel("Still waiting — verifying")
+          : "Still waiting — preparing gallery…"
+      );
 
-      fetchHealth(
-        function () {
-          fetchDashboardPage(
-            function (html) {
-              if (handleRecoveredDashboardHtml(html)) {
-                return;
-              }
+      verifyServiceReady(
+        function (html) {
+          if (handleRecoveredDashboardHtml(html)) {
+            return;
+          }
 
-              revealDashboard();
-            },
-            function () {
-              scheduleRetry(attemptShowDashboard);
-            }
-          );
+          revealDashboard();
         },
         function () {
           scheduleRetry(attemptShowDashboard);
@@ -671,27 +735,13 @@
 
     setUpdatingStatus(serviceStatusLabel("Checking"));
 
-    fetchHealth(
+    verifyServiceReady(
       function () {
-        fetchDashboardPage(
-          function () {
-            setUpdatingStatus("Dashboard page verified. Loading…");
-            reloadDashboard();
-          },
-          function () {
-            setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
-            scheduleRetry(attemptShowDashboard);
-          }
-        );
+        setUpdatingStatus("Dashboard page verified. Loading…");
+        reloadDashboard();
       },
       function () {
-        if (gatewayDetected || isGatewayErrorDocument()) {
-          applyGatewayWaitingUi();
-          setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
-        } else {
-          setUpdatingStatus(serviceStatusLabel("Still waiting for"));
-        }
-
+        setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
         scheduleRetry(attemptShowDashboard);
       }
     );
@@ -720,20 +770,29 @@
           handleRecoveredDashboardHtml(html);
         },
         function () {
+          requireRemoteVerification();
+
           if (isDashboardDocument() && isDashboardReady()) {
-            if (isOverlayVisible()) {
-              fetchHealth(
-                function () {
-                  gatewayDetected = false;
-                  revealDashboard();
-                },
-                function () {
-                  setUpdatingVisible(true);
-                  setUpdatingStatus(serviceStatusLabel("Still waiting for"));
-                  scheduleRetry(attemptShowDashboard);
+            verifyServiceReady(
+              function (html) {
+                if (!isOverlayVisible()) {
+                  return;
                 }
-              );
-            }
+
+                if (handleRecoveredDashboardHtml(html)) {
+                  return;
+                }
+
+                gatewayDetected = false;
+                revealDashboard();
+              },
+              function () {
+                setUpdatingVisible(true);
+                applyGatewayWaitingUi();
+                setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
+                scheduleRetry(attemptShowDashboard);
+              }
+            );
             return;
           }
 

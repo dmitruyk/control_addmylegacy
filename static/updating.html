@@ -5,7 +5,9 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="control-addmylegacy" content="wait-page">
-  <title>AddMyLegacy Control — Updating</title>
+  <meta name="aml-service-url" content="https://control.addmylegacy.com">
+  <meta name="aml-service-mode" content="production">
+  <title>Addmlegacy Control — Still waiting</title>
   <style>
     html, body {
       height: 100%;
@@ -21,17 +23,12 @@
       overflow: hidden;
     }
 
-    .tv-updating-shell {
+    .tv-updating {
       align-items: center;
       box-sizing: border-box;
-      display: -webkit-box;
-      display: -webkit-flex;
       display: flex;
-      -webkit-box-orient: vertical;
-      -webkit-flex-direction: column;
       flex-direction: column;
       height: 100%;
-      -webkit-box-pack: center;
       justify-content: center;
       padding: 48px;
       text-align: center;
@@ -52,15 +49,14 @@
       text-transform: uppercase;
     }
 
-    .tv-updating-shell-synology .tv-updating-title { color: #fbbf24; }
-    .tv-updating-shell-synology .tv-updating-badge { display: block; }
+    .tv-updating-synology .tv-updating-title { color: #fbbf24; }
+    .tv-updating-synology .tv-updating-badge { display: block; }
 
     .tv-updating-mark {
       align-items: center;
       background-image: linear-gradient(135deg, #2dd4bf, #2563eb);
       border-radius: 20px;
       color: #041018;
-      display: -webkit-flex;
       display: flex;
       font-size: 40px;
       font-weight: 800;
@@ -82,12 +78,10 @@
       height: 56px;
       margin-bottom: 36px;
       width: 56px;
-      -webkit-animation: tv-spin 1s linear infinite;
       animation: tv-spin 1s linear infinite;
     }
 
-    @-webkit-keyframes tv-spin { to { -webkit-transform: rotate(360deg); } }
-    @keyframes tv-spin { to { -webkit-transform: rotate(360deg); transform: rotate(360deg); } }
+    @keyframes tv-spin { to { transform: rotate(360deg); } }
 
     @media screen and (min-width: 1600px) {
       .tv-updating-title { font-size: 72px; }
@@ -97,151 +91,894 @@
     }
   </style>
 </head>
-<body>
-  <main class="tv-updating-shell" id="tv-updating-shell" role="main" aria-live="polite" aria-busy="true">
-    <p class="tv-updating-badge" id="tv-updating-synology-badge">Synology NAS gateway</p>
+<body
+  data-service-base="https://control.addmylegacy.com"
+  data-service-mode="production"
+  data-health-poll-seconds="3"
+>
+  <main id="tv-updating" class="tv-updating" role="main" aria-live="polite" aria-busy="true">
+    <p class="tv-updating-badge" id="tv-updating-badge">Synology gateway</p>
     <div class="tv-updating-mark" aria-hidden="true">AML</div>
     <div class="tv-updating-spinner" aria-hidden="true"></div>
-    <h1 class="tv-updating-title" id="tv-updating-title">Updating in progress</h1>
-    <p class="tv-updating-message" id="tv-updating-message">The control dashboard is restarting. This page will load automatically when the service is ready.</p>
-    <p class="tv-updating-meta" id="tv-updating-status">Checking service status…</p>
+    <h1 class="tv-updating-title" id="tv-updating-title">Still waiting</h1>
+    <p class="tv-updating-message" id="tv-updating-message">The control dashboard will appear automatically when the service is ready.</p>
+    <p class="tv-updating-meta" id="tv-updating-meta">Checking control dashboard…</p>
   </main>
-
   <script>
-    (function () {
-      "use strict";
+(function () {
+  "use strict";
 
-      var POLL_MS = 3000;
-      var synologyDetected = false;
-      var shellEl = document.getElementById("tv-updating-shell");
-      var titleEl = document.getElementById("tv-updating-title");
-      var messageEl = document.getElementById("tv-updating-message");
-      var statusEl = document.getElementById("tv-updating-status");
-      var LOCAL_HOSTS = { localhost: true, "127.0.0.1": true, "0.0.0.0": true };
+  var pollMs = 3000;
+  var monitorMs = 10000;
+  var stuckOverlayMs = 180000;
+  var updatingEl = null;
+  var rootEl = null;
+  var monitoring = false;
+  var retryTimer = null;
+  var gatewayDetected = false;
+  var serviceConfig = null;
+  var overlayShownAt = 0;
+  var networkFailureHint = false;
+  var remoteVerificationRequired = false;
 
-      function resolveServiceConfig() {
-        var hostname = window.location.hostname || "";
-        var origin = (window.location.origin || "").replace(/\/+$/, "");
-        var configuredBase = "";
-        var meta = document.querySelector('meta[name="aml-service-url"]');
-        if (meta && meta.getAttribute) configuredBase = (meta.getAttribute("content") || "").trim();
-        if (LOCAL_HOSTS[hostname.toLowerCase()]) {
-          return { base: origin, mode: "local", healthUrl: origin + "/health/", dashboardUrl: origin + "/" };
-        }
-        if (configuredBase) {
-          configuredBase = configuredBase.replace(/\/+$/, "");
-          return { base: configuredBase, mode: "production", healthUrl: configuredBase + "/health/", dashboardUrl: configuredBase + "/" };
-        }
-        return { base: origin, mode: "production", healthUrl: origin + "/health/", dashboardUrl: origin + "/" };
-      }
+  var LOCAL_HOSTS = {
+    localhost: true,
+    "127.0.0.1": true,
+    "0.0.0.0": true,
+    "::1": true,
+  };
 
-      function serviceStatusLabel(prefix) {
-        var config = resolveServiceConfig();
-        if (config.mode === "local") return (prefix || "Checking") + " local service at " + config.base + "…";
-        return (prefix || "Checking") + " " + config.base.replace(/^https?:\/\//, "") + "…";
-      }
+  var DASHBOARD_MARKERS = [
+    'name="control-addmylegacy" content="tv-dashboard"',
+    'id="tv-root"',
+    'id="tv-slides-data"',
+  ];
 
-      var SYNOLOGY_MARKERS = ["synology", "diskstation", "dsm ", "webstation", "bad gateway", "service unavailable", "404", "not found", "page not found", "page cannot be found"];
+  var GATEWAY_MARKERS = [
+    "synology inc",
+    "circle_text",
+    "the page you are looking for cannot be found",
+  ];
 
-      function isSynologyHtml(html) {
-        var text = String(html || "").toLowerCase();
-        var i;
-        if (!text || text.indexOf("control-addmylegacy") !== -1) return false;
-        for (i = 0; i < SYNOLOGY_MARKERS.length; i += 1) {
-          if (text.indexOf(SYNOLOGY_MARKERS[i]) !== -1) return true;
-        }
+  function readMeta(name) {
+    var meta = document.querySelector('meta[name="' + name + '"]');
+
+    return meta && meta.getAttribute ? (meta.getAttribute("content") || "").trim() : "";
+  }
+
+  function readBodyData(name) {
+    var body = document.body;
+
+    if (!body || !body.getAttribute) {
+      return "";
+    }
+
+    return (body.getAttribute(name) || "").trim();
+  }
+
+  function normalizeBase(url) {
+    return String(url || "").replace(/\/+$/, "");
+  }
+
+  function joinUrl(base, path) {
+    var normalizedBase = normalizeBase(base);
+    var normalizedPath = path || "/";
+
+    if (normalizedPath.charAt(0) !== "/") {
+      normalizedPath = "/" + normalizedPath;
+    }
+
+    return normalizedBase + normalizedPath;
+  }
+
+  function cacheBustUrl(url) {
+    var separator = String(url || "").indexOf("?") === -1 ? "?" : "&";
+
+    return String(url || "") + separator + "_=" + new Date().getTime();
+  }
+
+  function getCurrentBuildId() {
+    var meta = document.querySelector('meta[name="aml-static-build"]');
+
+    return meta && meta.getAttribute ? (meta.getAttribute("content") || "") : "";
+  }
+
+  function extractBuildId(html) {
+    var match = String(html || "").match(/name="aml-static-build"\s+content="([^"]+)"/);
+
+    return match ? match[1] : "";
+  }
+
+  function shouldReloadForHtml(html) {
+    var remoteBuild = extractBuildId(html);
+    var localBuild = getCurrentBuildId();
+
+    return !!(remoteBuild && localBuild && remoteBuild !== localBuild);
+  }
+
+  function isOverlayVisible() {
+    return !!(
+      updatingEl &&
+      updatingEl.className &&
+      updatingEl.className.indexOf("tv-updating-visible") !== -1
+    );
+  }
+
+  function markOverlayShown() {
+    if (!overlayShownAt) {
+      overlayShownAt = new Date().getTime();
+    }
+  }
+
+  function clearOverlayShown() {
+    overlayShownAt = 0;
+  }
+
+  function isLocalHost(hostname) {
+    return !!LOCAL_HOSTS[String(hostname || "").toLowerCase()];
+  }
+
+  function resolveServiceConfig() {
+    var hostname = window.location.hostname || "";
+    var currentOrigin = normalizeBase(window.location.origin || "");
+    var configuredBase = readMeta("aml-service-url") || readBodyData("data-service-base");
+    var configuredMode = readMeta("aml-service-mode") || readBodyData("data-service-mode");
+    var base;
+    var mode;
+
+    if (configuredMode === "local" || isLocalHost(hostname)) {
+      base = currentOrigin;
+      mode = "local";
+    } else if (configuredBase) {
+      base = normalizeBase(configuredBase);
+      mode = "production";
+    } else {
+      base = currentOrigin;
+      mode = isLocalHost(hostname) ? "local" : "production";
+    }
+
+    return {
+      base: base,
+      mode: mode,
+      healthUrl: joinUrl(base, "/health/"),
+      dashboardUrl: joinUrl(base, "/"),
+      dashboardPath: "/",
+    };
+  }
+
+  function getServiceConfig() {
+    if (!serviceConfig) {
+      serviceConfig = resolveServiceConfig();
+    }
+
+    return serviceConfig;
+  }
+
+  function serviceStatusLabel(prefix) {
+    var config = getServiceConfig();
+    var label = prefix || "Checking";
+
+    if (config.mode === "local") {
+      return label + " local service at " + config.base + "…";
+    }
+
+    return label + " " + config.base.replace(/^https?:\/\//, "") + "…";
+  }
+
+  function openDashboard() {
+    var config = getServiceConfig();
+    var currentOrigin = normalizeBase(window.location.origin || "");
+    var target = config.dashboardPath;
+
+    if (config.base !== currentOrigin) {
+      target = config.dashboardUrl;
+    }
+
+    window.location.replace(cacheBustUrl(target));
+  }
+
+  function getAppMarker() {
+    return readMeta("control-addmylegacy");
+  }
+
+  function htmlContainsMarkers(html, markers) {
+    var text = String(html || "").toLowerCase();
+    var index;
+
+    for (index = 0; index < markers.length; index += 1) {
+      if (text.indexOf(String(markers[index]).toLowerCase()) === -1) {
         return false;
       }
+    }
 
-      function isSynologyDocument() {
-        return isSynologyHtml((document.documentElement.innerHTML || "") + " " + (document.title || ""));
+    return true;
+  }
+
+  function isValidDashboardHtml(html) {
+    return htmlContainsMarkers(html, DASHBOARD_MARKERS);
+  }
+
+  function isGatewayErrorHtml(html) {
+    var text = String(html || "").toLowerCase();
+
+    if (!text || text.indexOf("control-addmylegacy") !== -1) {
+      return false;
+    }
+
+    return htmlContainsMarkers(html, GATEWAY_MARKERS) || text.indexOf(">404<") !== -1;
+  }
+
+  function isDashboardDocument() {
+    if (getAppMarker() !== "tv-dashboard") {
+      return false;
+    }
+
+    return !!(
+      document.getElementById("tv-root") &&
+      document.getElementById("tv-slides-data") &&
+      document.querySelector(".tv-hud")
+    );
+  }
+
+  function isWaitDocument() {
+    var marker = getAppMarker();
+
+    return marker === "wait-page" || marker === "updating-page";
+  }
+
+  function isGatewayErrorDocument() {
+    if (isDashboardDocument() || isWaitDocument()) {
+      return false;
+    }
+
+    var html = (document.documentElement && document.documentElement.innerHTML) || "";
+    var title = document.title || "";
+
+    return isGatewayErrorHtml(html + " " + title);
+  }
+
+  function getPollInterval() {
+    var value = parseInt(readBodyData("data-health-poll-seconds"), 10);
+
+    if (!value || value < 1) {
+      return pollMs;
+    }
+
+    return value * 1000;
+  }
+
+  function getRefreshInterval() {
+    var value = parseInt(readBodyData("data-refresh-seconds"), 10);
+
+    if (!value || value < 1) {
+      return 0;
+    }
+
+    return value * 1000;
+  }
+
+  function createXhr() {
+    if (window.XMLHttpRequest) {
+      return new XMLHttpRequest();
+    }
+
+    try {
+      return new ActiveXObject("Microsoft.XMLHTTP");
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function parseSlidesPayload(raw) {
+    var data;
+
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      data = JSON.parse(raw);
+    } catch (error) {
+      return [];
+    }
+
+    if (typeof data === "string") {
+      try {
+        data = JSON.parse(data);
+      } catch (innerError) {
+        return [];
+      }
+    }
+
+    return data && data.length !== undefined ? data : [];
+  }
+
+  function isDashboardReady() {
+    var slidesEl = document.getElementById("tv-slides-data");
+    var slides = [];
+
+    if (!isDashboardDocument() || !rootEl || !slidesEl) {
+      return false;
+    }
+
+    slides = parseSlidesPayload(slidesEl.textContent || "[]");
+
+    return slides.length > 0 && slides[0] && slides[0].url;
+  }
+
+  function getUpdatingMetaEl() {
+    return updatingEl ? updatingEl.getElementsByClassName("tv-updating-meta")[0] : null;
+  }
+
+  function requireRemoteVerification() {
+    remoteVerificationRequired = true;
+  }
+
+  function confirmServiceAvailable() {
+    remoteVerificationRequired = false;
+  }
+
+  function applyGatewayWaitingUi() {
+    var badgeEl;
+    var titleEl;
+    var messageEl;
+
+    gatewayDetected = true;
+    requireRemoteVerification();
+
+    if (!updatingEl) {
+      return;
+    }
+
+    updatingEl.className = "tv-updating tv-updating-visible tv-updating-synology";
+    updatingEl.setAttribute("aria-hidden", "false");
+
+    badgeEl = document.getElementById("tv-updating-badge");
+    titleEl = document.getElementById("tv-updating-title");
+    messageEl = document.getElementById("tv-updating-message");
+
+    if (badgeEl) {
+      badgeEl.removeAttribute("hidden");
+    }
+
+    if (titleEl) {
+      titleEl.textContent = "Gateway page detected — still waiting";
+    }
+
+    if (messageEl) {
+      messageEl.textContent =
+        "The response was not the control dashboard yet. Waiting until the real dashboard page is available.";
+    }
+
+    document.title = "Still waiting for dashboard";
+  }
+
+  function injectWaitingShell() {
+    if (document.getElementById("tv-updating")) {
+      updatingEl = document.getElementById("tv-updating");
+      setUpdatingVisible(true);
+      applyGatewayWaitingUi();
+      return;
+    }
+
+    updatingEl = document.createElement("div");
+    updatingEl.id = "tv-updating";
+    updatingEl.className = "tv-updating tv-updating-visible tv-updating-synology";
+    updatingEl.setAttribute("aria-live", "polite");
+    updatingEl.setAttribute("aria-busy", "true");
+    updatingEl.innerHTML =
+      '<p class="tv-updating-badge" id="tv-updating-badge">Gateway</p>' +
+      '<div class="tv-updating-mark" aria-hidden="true">AML</div>' +
+      '<div class="tv-updating-spinner" aria-hidden="true"></div>' +
+      '<h1 class="tv-updating-title" id="tv-updating-title">Still waiting</h1>' +
+      '<p class="tv-updating-message" id="tv-updating-message">The control dashboard will appear automatically when the real service page is available.</p>' +
+      '<p class="tv-updating-meta" id="tv-updating-meta">Checking dashboard page content…</p>';
+    document.body.appendChild(updatingEl);
+    gatewayDetected = true;
+    document.title = "Still waiting for dashboard";
+  }
+
+  function setUpdatingVisible(visible) {
+    if (!updatingEl) {
+      return;
+    }
+
+    if (visible) {
+      updatingEl.className = gatewayDetected
+        ? "tv-updating tv-updating-visible tv-updating-synology"
+        : "tv-updating tv-updating-visible";
+      updatingEl.setAttribute("aria-hidden", "false");
+      markOverlayShown();
+
+      if (rootEl) {
+        rootEl.className = "tv-gallery tv-content-hidden";
+      }
+    } else {
+      updatingEl.className = "tv-updating";
+      updatingEl.setAttribute("aria-hidden", "true");
+      clearOverlayShown();
+
+      if (rootEl) {
+        rootEl.className = "tv-gallery";
+      }
+    }
+  }
+
+  function setUpdatingStatus(message) {
+    var metaEl = getUpdatingMetaEl();
+
+    if (metaEl) {
+      metaEl.textContent = message;
+    }
+  }
+
+  function fetchUrl(url, onSuccess, onFailure) {
+    var xhr = createXhr();
+
+    if (!xhr) {
+      onFailure("", 0);
+      return;
+    }
+
+    xhr.open("GET", cacheBustUrl(url), true);
+    xhr.timeout = 8000;
+
+    try {
+      xhr.setRequestHeader("Cache-Control", "no-cache");
+      xhr.setRequestHeader("Pragma", "no-cache");
+    } catch (headerError) {
+      /* ignore — not all engines allow these on GET */
+    }
+
+    xhr.onreadystatechange = function () {
+      var body;
+
+      if (xhr.readyState !== 4) {
+        return;
       }
 
-      function applySynologyUi(isSynology) {
-        synologyDetected = isSynology;
-        if (isSynology) {
-          document.title = "Synology — waiting for dashboard";
-          if (titleEl) titleEl.textContent = "Synology gateway — still waiting";
-          if (messageEl) messageEl.textContent = "The Synology NAS is online but the control dashboard container is still restarting. This page will load automatically when the service is ready.";
-          if (shellEl) shellEl.className = "tv-updating-shell tv-updating-shell-synology";
-        }
+      body = xhr.responseText || "";
+
+      if (xhr.status === 200) {
+        onSuccess(body, xhr.status);
+        return;
       }
 
-      function setStatus(retrying) {
-        if (!statusEl) return;
-        if (synologyDetected) {
-          statusEl.textContent = retrying
-            ? "Synology gateway detected — container still starting…"
-            : "Checking Synology gateway and container status…";
+      if (isGatewayErrorHtml(body)) {
+        applyGatewayWaitingUi();
+      }
+
+      if (xhr.status === 0) {
+        networkFailureHint = true;
+      }
+
+      if (xhr.status !== 200) {
+        requireRemoteVerification();
+      }
+
+      onFailure(body, xhr.status);
+    };
+
+    xhr.onerror = function () {
+      networkFailureHint = true;
+      requireRemoteVerification();
+      onFailure("", 0);
+    };
+
+    xhr.ontimeout = function () {
+      networkFailureHint = true;
+      requireRemoteVerification();
+      onFailure("", 0);
+    };
+
+    try {
+      xhr.send(null);
+    } catch (error) {
+      onFailure("", 0);
+    }
+  }
+
+  function fetchHealth(onSuccess, onFailure) {
+    var config = getServiceConfig();
+
+    fetchUrl(
+      config.healthUrl,
+      function (body) {
+        if (body.indexOf("ok") !== -1) {
+          onSuccess(body);
           return;
         }
-        statusEl.textContent = retrying
-          ? "Still updating… retrying in a few seconds"
-          : "Checking service status…";
-      }
 
-      function createXhr() {
-        if (window.XMLHttpRequest) return new XMLHttpRequest();
-        try { return new ActiveXObject("Microsoft.XMLHTTP"); } catch (e) { return null; }
-      }
+        if (isGatewayErrorHtml(body)) {
+          applyGatewayWaitingUi();
+        }
 
-      function fetchDashboardPage(onSuccess, onFailure) {
-        var config = resolveServiceConfig();
-        var xhr = createXhr();
-        if (!xhr) {
-          onFailure("", 0);
+        requireRemoteVerification();
+        onFailure(body, 200);
+      },
+      onFailure
+    );
+  }
+
+  function fetchDashboardPage(onSuccess, onFailure) {
+    var config = getServiceConfig();
+
+    fetchUrl(
+      config.dashboardUrl,
+      function (body) {
+        if (isValidDashboardHtml(body)) {
+          onSuccess(body);
           return;
         }
 
-        xhr.open("GET", config.dashboardUrl, true);
-        xhr.timeout = 8000;
-        xhr.onreadystatechange = function () {
-          var body;
-          if (xhr.readyState !== 4) return;
-          body = xhr.responseText || "";
-          if (isValidDashboardHtml(body)) {
-            onSuccess();
+        if (isGatewayErrorHtml(body)) {
+          applyGatewayWaitingUi();
+        }
+
+        requireRemoteVerification();
+        onFailure(body, 200);
+      },
+      onFailure
+    );
+  }
+
+  function clearRetryTimer() {
+    if (retryTimer) {
+      window.clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  }
+
+  function scheduleRetry(callback) {
+    clearRetryTimer();
+    pollMs = getPollInterval();
+    if (networkFailureHint && pollMs < 20000) {
+      pollMs = 20000;
+    }
+    networkFailureHint = false;
+    retryTimer = window.setTimeout(callback, pollMs);
+  }
+
+  function clearBrokenServiceWorkers() {
+    if (!("serviceWorker" in navigator) || !navigator.serviceWorker.register) {
+      return;
+    }
+
+    try {
+      navigator.serviceWorker.register("/sw.js").catch(function () {});
+
+      if (!navigator.serviceWorker.getRegistrations) {
+        return;
+      }
+
+      window.setTimeout(function () {
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          var index;
+
+          for (index = 0; index < registrations.length; index += 1) {
+            if (registrations[index].active && registrations[index].active.scriptURL.indexOf("tv-sw.js") !== -1) {
+              registrations[index].unregister();
+            }
+          }
+        });
+      }, 2000);
+    } catch (error) {
+      /* ignore */
+    }
+  }
+
+  function reloadDashboard() {
+    setUpdatingStatus("Loading updated dashboard…");
+    openDashboard();
+  }
+
+  function handleRecoveredDashboardHtml(html) {
+    if (!isValidDashboardHtml(html)) {
+      requireRemoteVerification();
+      return false;
+    }
+
+    confirmServiceAvailable();
+
+    if (shouldReloadForHtml(html)) {
+      reloadDashboard();
+      return true;
+    }
+
+    if (!isDashboardReady()) {
+      reloadDashboard();
+      return true;
+    }
+
+    if (isOverlayVisible()) {
+      gatewayDetected = false;
+      revealDashboard();
+    }
+
+    return false;
+  }
+
+  function verifyServiceReady(onVerified, onStillWaiting) {
+    fetchHealth(
+      function () {
+        fetchDashboardPage(
+          function (html) {
+            if (!isValidDashboardHtml(html)) {
+              requireRemoteVerification();
+              if (onStillWaiting) {
+                onStillWaiting();
+              }
+              return;
+            }
+
+            confirmServiceAvailable();
+            onVerified(html);
+          },
+          function () {
+            requireRemoteVerification();
+            if (onStillWaiting) {
+              onStillWaiting();
+            }
+          }
+        );
+      },
+      function () {
+        requireRemoteVerification();
+
+        if (gatewayDetected || isGatewayErrorDocument()) {
+          applyGatewayWaitingUi();
+          setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
+        } else {
+          setUpdatingStatus(serviceStatusLabel("Still waiting for"));
+        }
+
+        if (onStillWaiting) {
+          onStillWaiting();
+        }
+      }
+    );
+  }
+
+  function recoverFromStuckOverlay() {
+    if (!isOverlayVisible() || !overlayShownAt) {
+      return;
+    }
+
+    if (new Date().getTime() - overlayShownAt < stuckOverlayMs) {
+      return;
+    }
+
+    setUpdatingStatus("Still waiting — forcing refresh…");
+
+    fetchHealth(
+      function () {
+        fetchDashboardPage(
+          function (html) {
+            if (isValidDashboardHtml(html)) {
+              reloadDashboard();
+              return;
+            }
+
+            scheduleRetry(attemptShowDashboard);
+          },
+          function () {
+            scheduleRetry(attemptShowDashboard);
+          }
+        );
+      },
+      function () {
+        scheduleRetry(attemptShowDashboard);
+      }
+    );
+  }
+
+  function revealDashboard() {
+    clearRetryTimer();
+    setUpdatingVisible(false);
+
+    if (document.body && document.body.setAttribute) {
+      document.body.setAttribute("data-dashboard-ready", "true");
+    }
+
+    if (document.createEvent && document.body && document.body.dispatchEvent) {
+      var readyEvent = document.createEvent("Event");
+      readyEvent.initEvent("tv-dashboard-ready", true, true);
+      document.body.dispatchEvent(readyEvent);
+    }
+
+    startMonitor();
+    startSoftRefresh();
+  }
+
+  function activateDashboardIfReady() {
+    if (!isDashboardDocument()) {
+      injectWaitingShell();
+      setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
+      scheduleRetry(attemptShowDashboard);
+      return;
+    }
+
+    if (!isDashboardReady()) {
+      setUpdatingVisible(true);
+      setUpdatingStatus("Still waiting — preparing gallery…");
+      scheduleRetry(attemptShowDashboard);
+      return;
+    }
+
+    revealDashboard();
+  }
+
+  function attemptShowDashboard() {
+    setUpdatingVisible(true);
+    recoverFromStuckOverlay();
+
+    if (isDashboardDocument() && isDashboardReady() && !remoteVerificationRequired) {
+      setUpdatingStatus("Dashboard page ready.");
+      revealDashboard();
+      return;
+    }
+
+    if (isDashboardDocument()) {
+      setUpdatingStatus(
+        remoteVerificationRequired
+          ? serviceStatusLabel("Still waiting — verifying")
+          : "Still waiting — preparing gallery…"
+      );
+
+      verifyServiceReady(
+        function (html) {
+          if (handleRecoveredDashboardHtml(html)) {
             return;
           }
-          applySynologyUi(isGatewayHtml(body));
-          setStatus(true);
-          window.setTimeout(function () { fetchDashboardPage(onSuccess, onFailure); }, POLL_MS);
-        };
-        xhr.onerror = function () {
-          setStatus(true);
-          window.setTimeout(function () { fetchDashboardPage(onSuccess, onFailure); }, POLL_MS);
-        };
-        xhr.ontimeout = function () {
-          setStatus(true);
-          window.setTimeout(function () { fetchDashboardPage(onSuccess, onFailure); }, POLL_MS);
-        };
-        try { xhr.send(null); } catch (e) {
-          setStatus(true);
-          window.setTimeout(function () { fetchDashboardPage(onSuccess, onFailure); }, POLL_MS);
+
+          revealDashboard();
+        },
+        function () {
+          scheduleRetry(attemptShowDashboard);
         }
+      );
+      return;
+    }
+
+    setUpdatingStatus(serviceStatusLabel("Checking"));
+
+    verifyServiceReady(
+      function () {
+        setUpdatingStatus("Dashboard page verified. Loading…");
+        reloadDashboard();
+      },
+      function () {
+        setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
+        scheduleRetry(attemptShowDashboard);
+      }
+    );
+  }
+
+  function startMonitor() {
+    if (monitoring) {
+      return;
+    }
+
+    monitoring = true;
+    monitorMs = Math.max(getPollInterval() * 2, 10000);
+
+    window.setInterval(function () {
+      recoverFromStuckOverlay();
+
+      if (!isDashboardDocument()) {
+        setUpdatingVisible(true);
+        applyGatewayWaitingUi();
+        scheduleRetry(attemptShowDashboard);
+        return;
       }
 
-      function isValidDashboardHtml(html) {
-        var text = String(html || "").toLowerCase();
-        return text.indexOf('name="control-addmylegacy" content="tv-dashboard"') !== -1 &&
-          text.indexOf('id="tv-root"') !== -1 &&
-          text.indexOf('id="tv-slides-data"') !== -1;
-      }
+      fetchDashboardPage(
+        function (html) {
+          handleRecoveredDashboardHtml(html);
+        },
+        function () {
+          requireRemoteVerification();
 
-      function isGatewayHtml(html) {
-        var text = String(html || "").toLowerCase();
-        if (!text || text.indexOf("control-addmylegacy") !== -1) return false;
-        return text.indexOf("synology inc") !== -1 || text.indexOf("circle_text") !== -1 || text.indexOf(">404<") !== -1;
-      }
+          if (isDashboardDocument() && isDashboardReady()) {
+            verifyServiceReady(
+              function (html) {
+                if (!isOverlayVisible()) {
+                  return;
+                }
 
-      applySynologyUi(true);
-      if (statusEl) statusEl.textContent = serviceStatusLabel("Checking");
-      fetchDashboardPage(function () {
-        var config = resolveServiceConfig();
-        if (statusEl) statusEl.textContent = "Dashboard page verified. Loading…";
-        window.location.href = config.dashboardUrl;
-      }, function () {});
-    })();
-  </script>
+                if (handleRecoveredDashboardHtml(html)) {
+                  return;
+                }
+
+                gatewayDetected = false;
+                revealDashboard();
+              },
+              function () {
+                setUpdatingVisible(true);
+                applyGatewayWaitingUi();
+                setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
+                scheduleRetry(attemptShowDashboard);
+              }
+            );
+            return;
+          }
+
+          setUpdatingVisible(true);
+          applyGatewayWaitingUi();
+          setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
+          scheduleRetry(attemptShowDashboard);
+        }
+      );
+    }, monitorMs);
+  }
+
+  function startSoftRefresh() {
+    var refreshMs = getRefreshInterval();
+
+    if (!refreshMs || !isDashboardDocument()) {
+      return;
+    }
+
+    window.setInterval(function () {
+      fetchDashboardPage(
+        function (html) {
+          if (shouldReloadForHtml(html)) {
+            window.location.reload();
+          }
+        },
+        function () {
+          /* Keep showing the current dashboard if the poll fails. */
+        }
+      );
+    }, refreshMs);
+  }
+
+  function boot() {
+    updatingEl = document.getElementById("tv-updating");
+    rootEl = document.getElementById("tv-root");
+    serviceConfig = resolveServiceConfig();
+
+    clearBrokenServiceWorkers();
+
+    if (isGatewayErrorDocument()) {
+      injectWaitingShell();
+      setUpdatingStatus(serviceStatusLabel("Gateway detected — waiting for"));
+      attemptShowDashboard();
+      return;
+    }
+
+    if (isWaitDocument()) {
+      attemptShowDashboard();
+      return;
+    }
+
+    if (!isDashboardDocument()) {
+      injectWaitingShell();
+      setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
+      attemptShowDashboard();
+      return;
+    }
+
+    if (!updatingEl) {
+      injectWaitingShell();
+    }
+
+    setUpdatingVisible(true);
+    setUpdatingStatus(serviceStatusLabel("Checking"));
+    attemptShowDashboard();
+  }
+
+  if (document.readyState === "loading") {
+    if (document.addEventListener) {
+      document.addEventListener("DOMContentLoaded", boot);
+    } else {
+      window.attachEvent("onload", boot);
+    }
+  } else {
+    boot();
+  }
+})();
+
+</script>
 </body>
 </html>

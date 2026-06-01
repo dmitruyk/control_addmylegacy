@@ -3,6 +3,9 @@ set -e
 
 ROOT="${1:-/var/www/control-addmylegacy}"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+
+python3 "${SCRIPT_DIR}/build_missing_static.py"
+
 SOURCE="${SCRIPT_DIR}/updating.html"
 SYNOLOGY_SOURCE="${SCRIPT_DIR}/synology-tv-wait.html"
 TARGET="${ROOT}/updating.html"

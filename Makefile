@@ -56,14 +56,18 @@ run-docker:
 login-registry:
 	docker login $(registry)
 
+.PHONY: build-missing-static
+build-missing-static:
+	python3 deploy/build_missing_static.py
+
 .PHONY: deploy-placeholder
-deploy-placeholder:
-	@echo "Optional only (first TV visit before service worker): install /missing on NAS"
+deploy-placeholder: build-missing-static
+	@echo "Install static /missing on NAS (required when Docker is stopped):"
 	@echo "  make install-nginx-placeholder NGINX_ROOT=/volume1/web/control-addmylegacy"
 	@echo "Normal deploy: bump STATIC_BUILD_ID and make build-push-docker"
 
 .PHONY: install-nginx-placeholder
-install-nginx-placeholder:
+install-nginx-placeholder: build-missing-static
 	./deploy/install-updating-placeholder.sh $(NGINX_ROOT)
 
 .PHONY: clean-docker
