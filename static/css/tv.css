@@ -1299,7 +1299,7 @@ html {
 
 .tv-wealth-property-summary {
   display: block;
-  max-width: 100%;
+  max-width: 24ch;
   line-height: 1.2;
   margin-top: 4px;
   overflow: hidden;
@@ -1803,18 +1803,44 @@ html {
 
 @media screen and (max-width: 1536px) and (max-height: 864px) {
   .tv-hud-widgets {
-    --tv-hud-gap: 14px;
-    bottom: 14px;
+    --tv-hud-gap: 6px;
+    bottom: 6px;
+    right: 6px;
+  }
+
+  .tv-hud-widget-stack {
+    display: inline-block;
+    max-width: 520px;
+    width: 520px;
+  }
+
+  /* Tizen M56: flex `gap` is unreliable — use margin between rows instead */
+  .tv-hud-weather,
+  .tv-hud-earthquake,
+  .tv-hud-wealth {
+    margin-bottom: 6px;
+  }
+
+  .tv-hud-binance {
+    margin-bottom: 0;
+  }
+
+  .tv-hud-weather .tv-widget-card {
+    margin-left: 6px;
+  }
+
+  .tv-hud-weather .tv-widget-card:first-child {
+    margin-left: 0;
   }
 
   .tv-widget-card,
   .tv-weather-card {
-    padding: 12px 18px 10px;
+    padding: 10px 16px 8px;
   }
 
   .tv-weather-city {
     font-size: 14px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .tv-weather-temp {
@@ -1827,8 +1853,8 @@ html {
   }
 
   .tv-weather-hourly {
-    margin-top: 2px;
-    padding-top: 6px;
+    margin-top: 1px;
+    padding-top: 5px;
   }
 
   .tv-weather-hour-time {
