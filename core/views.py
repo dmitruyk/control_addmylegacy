@@ -11,6 +11,7 @@ from core.binance_us import binance_us_portfolio
 from core.earthquakes import bay_area_earthquakes
 from core.models import ArtSlide, TvDisplayConfig
 from core.weather import bay_area_weather
+from core.wealth import wealth_widget
 
 STANDALONE_WAIT_PATH = Path(settings.BASE_DIR) / "deploy" / "updating.html"
 
@@ -93,6 +94,7 @@ def _dashboard_context(request):
         "slides": slides,
         "weather": bay_area_weather(),
         "earthquakes": bay_area_earthquakes(),
+        "wealth": wealth_widget(),
         "binance": binance_us_portfolio(),
     }
 

@@ -173,6 +173,9 @@ BINANCE_US_API_BASE = env("BINANCE_US_API_BASE", default="https://api.binance.us
 BINANCE_US_CACHE_SECONDS = env.int("BINANCE_US_CACHE_SECONDS", default=300)
 BINANCE_US_HISTORY_DAYS = env.int("BINANCE_US_HISTORY_DAYS", default=90)
 
+# Property Zestimate widget (Zillow; auto-fetch at most once per day).
+ZILLOW_CACHE_SECONDS = env.int("ZILLOW_CACHE_SECONDS", default=86400)
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

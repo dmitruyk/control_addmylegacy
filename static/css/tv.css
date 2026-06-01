@@ -736,6 +736,7 @@ html {
 
 .tv-hud-weather,
 .tv-hud-earthquake,
+.tv-hud-wealth,
 .tv-hud-binance {
   box-sizing: border-box;
   margin-bottom: 24px;
@@ -747,6 +748,7 @@ html {
   margin-bottom: 0;
 }
 
+.tv-hud-wealth .tv-widget-card,
 .tv-hud-binance .tv-widget-card,
 .tv-hud-earthquake .tv-widget-card {
   margin-left: 0;
@@ -768,7 +770,7 @@ html {
   -webkit-box-flex: 1;
   -webkit-flex: 1 1 220px;
   flex: 1 1 220px;
-  margin-left: 16px;
+  margin-left: var(--tv-hud-gap, 24px);
   min-width: 220px;
   overflow: visible;
 }
@@ -1184,6 +1186,164 @@ html {
   font-size: 14px;
 }
 
+.tv-wealth-card-up {
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.tv-wealth-card-down {
+  border-color: rgba(246, 70, 93, 0.45);
+}
+
+.tv-wealth-section + .tv-wealth-section {
+  margin-top: 16px;
+}
+
+.tv-wealth-divider {
+  background: rgba(255, 255, 255, 0.12);
+  height: 1px;
+  margin: 18px 0 16px;
+  width: 100%;
+}
+
+.tv-wealth-balance-row {
+  -webkit-box-align: start;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-pack: justify;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.tv-wealth-balance-main {
+  min-width: 0;
+}
+
+.tv-wealth-balance-label {
+  color: rgba(255, 255, 255, 0.72);
+  color: var(--muted-color);
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 4px;
+}
+
+.tv-wealth-total {
+  color: #fff;
+  color: var(--text-color);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.tv-wealth-total-calm {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.tv-wealth-change-badges {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-box-pack: end;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end;
+  margin-left: 12px;
+  margin-top: 2px;
+}
+
+.tv-wealth-badge {
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-left: 8px;
+  margin-top: 4px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.tv-wealth-badge:first-child {
+  margin-left: 0;
+}
+
+.tv-wealth-badge-up {
+  background: rgba(14, 203, 129, 0.18);
+  color: #0ecb81;
+}
+
+.tv-wealth-badge-down {
+  background: rgba(246, 70, 93, 0.18);
+  color: #f6465d;
+}
+
+.tv-wealth-place {
+  color: #fff;
+  color: var(--text-color);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 8px 0 2px;
+}
+
+.tv-wealth-chart-wrap {
+  margin-top: 6px;
+}
+
+.tv-wealth-period-bar {
+  margin-bottom: 8px;
+}
+
+.tv-wealth-period {
+  color: rgba(255, 255, 255, 0.58);
+  color: var(--muted-color);
+  font-size: 14px;
+  margin-right: 12px;
+}
+
+.tv-wealth-period-active {
+  color: #10b981;
+}
+
+.tv-wealth-chart {
+  display: block;
+  height: 64px;
+  width: 100%;
+}
+
+.tv-wealth-chart-fill {
+  stroke: none;
+}
+
+.tv-wealth-chart-line {
+  fill: none;
+  stroke: #10b981;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.tv-wealth-chart-dates {
+  color: rgba(255, 255, 255, 0.58);
+  color: var(--muted-color);
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  font-size: 12px;
+  -webkit-box-pack: justify;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.tv-wealth-chart-date {
+  min-width: 0;
+  text-align: center;
+}
+
 .tv-earthquake-current {
   -webkit-box-align: center;
   -webkit-align-items: center;
@@ -1424,6 +1584,23 @@ html {
     height: 32px;
     min-width: 32px;
   }
+
+  .tv-wealth-total {
+    font-size: 36px;
+  }
+
+  .tv-wealth-badge {
+    font-size: 15px;
+    padding: 7px 12px;
+  }
+
+  .tv-wealth-chart {
+    height: 96px;
+  }
+
+  .tv-wealth-chart-dates {
+    font-size: 13px;
+  }
 }
 
 @media screen and (max-width: 960px) {
@@ -1471,5 +1648,327 @@ html {
   .tv-slide-caption {
     bottom: 260px;
     left: 24px;
+  }
+}
+
+@media screen and (max-height: 1050px) {
+  .tv-hud-widgets {
+    --tv-hud-gap: 18px;
+    bottom: 18px;
+  }
+
+  .tv-widget-card,
+  .tv-weather-card {
+    padding: 16px 22px 14px;
+  }
+
+  .tv-weather-temp {
+    font-size: 34px;
+    margin-bottom: 2px;
+  }
+
+  .tv-weather-hourly {
+    margin-top: 2px;
+    padding-top: 8px;
+  }
+
+  .tv-weather-label {
+    font-size: 16px;
+  }
+
+  .tv-earthquake-mag {
+    font-size: 32px;
+    margin: 0 12px 0 0;
+  }
+
+  .tv-earthquake-place {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+
+  .tv-earthquake-list {
+    margin-top: 8px;
+    padding-top: 6px;
+  }
+
+  .tv-earthquake-item {
+    margin-top: 6px;
+  }
+
+  .tv-earthquake-item-mag {
+    font-size: 14px;
+  }
+
+  .tv-earthquake-item-place {
+    font-size: 13px;
+    margin-bottom: 3px;
+  }
+
+  .tv-binance-balance-row {
+    margin-bottom: 4px;
+  }
+
+  .tv-binance-total {
+    font-size: 30px;
+  }
+
+  .tv-binance-chart-wrap {
+    margin-top: 4px;
+  }
+
+  .tv-binance-chart {
+    height: 52px;
+  }
+
+  .tv-binance-period-bar {
+    margin-bottom: 6px;
+  }
+
+  .tv-binance-chart-dates {
+    margin-top: 6px;
+  }
+
+  .tv-binance-split-row {
+    margin-top: 12px;
+  }
+
+  .tv-binance-split-value {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+
+  .tv-wealth-divider {
+    margin: 12px 0 10px;
+  }
+
+  .tv-wealth-section + .tv-wealth-section {
+    margin-top: 10px;
+  }
+
+  .tv-wealth-balance-row {
+    margin-bottom: 2px;
+  }
+
+  .tv-wealth-balance-label {
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
+  .tv-wealth-total {
+    font-size: 28px;
+  }
+
+  .tv-wealth-badge {
+    font-size: 13px;
+    padding: 5px 8px;
+    margin-top: 2px;
+  }
+
+  .tv-wealth-chart-wrap {
+    margin-top: 4px;
+  }
+
+  .tv-wealth-chart {
+    height: 52px;
+  }
+
+  .tv-wealth-chart-dates {
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
+  .tv-wealth-place {
+    font-size: 16px;
+    margin: 6px 0 2px;
+  }
+}
+
+@media screen and (max-width: 1536px) and (max-height: 864px) {
+  .tv-hud-widgets {
+    --tv-hud-gap: 14px;
+    bottom: 14px;
+  }
+
+  .tv-widget-card,
+  .tv-weather-card {
+    padding: 12px 18px 10px;
+  }
+
+  .tv-weather-city {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .tv-weather-temp {
+    font-size: 28px;
+    margin-bottom: 2px;
+  }
+
+  .tv-weather-label {
+    font-size: 14px;
+  }
+
+  .tv-weather-hourly {
+    margin-top: 2px;
+    padding-top: 6px;
+  }
+
+  .tv-weather-hour-time {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .tv-weather-hour-temp {
+    font-size: 14px;
+    margin-top: 2px;
+  }
+
+  .tv-earthquake-mag {
+    font-size: 28px;
+    margin-right: 10px;
+    min-width: 56px;
+  }
+
+  .tv-earthquake-place {
+    font-size: 15px;
+    margin-bottom: 3px;
+  }
+
+  .tv-earthquake-list {
+    margin-top: 6px;
+    padding-top: 5px;
+  }
+
+  .tv-earthquake-item {
+    margin-top: 4px;
+  }
+
+  .tv-earthquake-item-mag {
+    font-size: 13px;
+    min-width: 40px;
+  }
+
+  .tv-earthquake-item-place {
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+
+  .tv-earthquake-item-time {
+    font-size: 11px;
+  }
+
+  .tv-binance-balance-row {
+    margin-bottom: 3px;
+  }
+
+  .tv-binance-balance-label {
+    font-size: 14px;
+    margin-bottom: 3px;
+  }
+
+  .tv-binance-total {
+    font-size: 25px;
+  }
+
+  .tv-binance-badge {
+    font-size: 12px;
+    margin-top: 2px;
+    padding: 4px 7px;
+  }
+
+  .tv-binance-chart-wrap {
+    margin-top: 3px;
+  }
+
+  .tv-binance-period {
+    font-size: 12px;
+  }
+
+  .tv-binance-period-bar {
+    margin-bottom: 4px;
+  }
+
+  .tv-binance-chart {
+    height: 40px;
+  }
+
+  .tv-binance-chart-dates {
+    font-size: 10px;
+    margin-top: 4px;
+  }
+
+  .tv-binance-split-row {
+    margin-top: 8px;
+  }
+
+  .tv-binance-split-label {
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+
+  .tv-binance-split-value {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+
+  .tv-binance-asset-icon {
+    font-size: 9px;
+    height: 22px;
+    margin-right: 4px;
+    min-width: 22px;
+  }
+
+  .tv-wealth-section + .tv-wealth-section {
+    margin-top: 8px;
+  }
+
+  .tv-wealth-divider {
+    margin: 8px 0;
+  }
+
+  .tv-wealth-balance-row {
+    margin-bottom: 2px;
+  }
+
+  .tv-wealth-balance-label {
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+
+  .tv-wealth-total {
+    font-size: 23px;
+  }
+
+  .tv-wealth-badge {
+    font-size: 11px;
+    margin-top: 2px;
+    padding: 4px 7px;
+  }
+
+  .tv-wealth-chart-wrap {
+    margin-top: 3px;
+  }
+
+  .tv-wealth-period {
+    font-size: 11px;
+    margin-right: 8px;
+  }
+
+  .tv-wealth-period-bar {
+    margin-bottom: 4px;
+  }
+
+  .tv-wealth-chart {
+    height: 40px;
+  }
+
+  .tv-wealth-chart-dates {
+    font-size: 10px;
+    margin-top: 3px;
+  }
+
+  .tv-wealth-place {
+    font-size: 14px;
+    margin: 4px 0 1px;
   }
 }

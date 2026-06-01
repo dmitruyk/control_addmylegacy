@@ -1,0 +1,89 @@
+<article class="tv-widget-card tv-weather-card tv-wealth-card{% if wealth.retirement_is_available and wealth.retirement_change_pct is not None and wealth.retirement_change_pct < 0 %} tv-wealth-card-down{% elif wealth.retirement_is_available and wealth.retirement_change_pct is not None %} tv-wealth-card-up{% endif %}">
+  <div class="tv-wealth-section tv-wealth-section-retirement">
+    <p class="tv-weather-city">401(k)</p>
+
+    {% if wealth.retirement_is_available %}
+    <div class="tv-wealth-balance-row">
+      <div class="tv-wealth-balance-main">
+        <p class="tv-wealth-balance-label">Balance</p>
+        <p class="tv-wealth-total" aria-label="401k balance">{{ wealth.retirement_balance_display }}</p>
+        <p class="tv-weather-label">{{ wealth.retirement_last_date_label }}</p>
+      </div>
+      <div class="tv-wealth-change-badges" aria-label="401k gain or loss for {{ wealth.retirement_period_label }}">
+        <span class="tv-wealth-badge{% if wealth.retirement_change_usd is not None and wealth.retirement_change_usd < 0 %} tv-wealth-badge-down{% elif wealth.retirement_change_usd is not None %} tv-wealth-badge-up{% endif %}">{{ wealth.retirement_change_usd_display }}</span>
+        <span class="tv-wealth-badge{% if wealth.retirement_change_pct is not None and wealth.retirement_change_pct < 0 %} tv-wealth-badge-down{% elif wealth.retirement_change_pct is not None %} tv-wealth-badge-up{% endif %}">{{ wealth.retirement_change_display }}</span>
+      </div>
+    </div>
+
+    {% if wealth.retirement_chart_points %}
+    <div class="tv-wealth-chart-wrap">
+      <div class="tv-wealth-period-bar" aria-hidden="true">
+        <span class="tv-wealth-period tv-wealth-period-active">{{ wealth.retirement_period_label }}</span>
+        {% if wealth.retirement_contributions_display != "—" %}
+        <span class="tv-wealth-period">Contrib {{ wealth.retirement_contributions_display }}</span>
+        {% endif %}
+      </div>
+      <svg class="tv-wealth-chart" viewBox="0 0 {{ wealth.chart_width }} {{ wealth.chart_height }}" preserveAspectRatio="none" role="img" aria-label="401k balance trend">
+        <defs>
+          <linearGradient id="tv-wealth-chart-gradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#10b981" stop-opacity="0.42"></stop>
+            <stop offset="100%" stop-color="#10b981" stop-opacity="0"></stop>
+          </linearGradient>
+        </defs>
+        {% if wealth.retirement_chart_area_points %}
+        <polygon class="tv-wealth-chart-fill" points="{{ wealth.retirement_chart_area_points }}" fill="url(#tv-wealth-chart-gradient)"></polygon>
+        {% endif %}
+        <polyline class="tv-wealth-chart-line" points="{{ wealth.retirement_chart_points }}"></polyline>
+      </svg>
+      {% if wealth.retirement_chart_date_labels %}
+      <div class="tv-wealth-chart-dates">
+        {% for label in wealth.retirement_chart_date_labels %}
+        <span class="tv-wealth-chart-date">{{ label }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="tv-wealth-balance-row">
+      <div class="tv-wealth-balance-main">
+        <p class="tv-wealth-balance-label">Balance</p>
+        <p class="tv-wealth-total tv-wealth-total-calm">—</p>
+      </div>
+    </div>
+    <p class="tv-wealth-place">No 401(k) snapshots yet</p>
+    <p class="tv-weather-label">Add date + balance in admin</p>
+    {% endif %}
+  </div>
+
+  <div class="tv-wealth-divider" aria-hidden="true"></div>
+
+  <div class="tv-wealth-section tv-wealth-section-property{% if wealth.property_is_available and wealth.property_change_usd is not None and wealth.property_change_usd < 0 %} tv-wealth-property-down{% elif wealth.property_is_available and wealth.property_change_usd is not None %} tv-wealth-property-up{% endif %}">
+    <p class="tv-weather-city">{{ wealth.property_address }}</p>
+
+    {% if wealth.property_is_available %}
+    <div class="tv-wealth-balance-row">
+      <div class="tv-wealth-balance-main">
+        <p class="tv-wealth-balance-label">{{ wealth.property_source_label }}</p>
+        <p class="tv-wealth-total" aria-label="Property estimate">{{ wealth.property_price_display }}</p>
+        <p class="tv-weather-label">Purchase price {{ wealth.property_purchase_display }} · Mortgage {{ wealth.property_mortgage_display }}</p>
+        <p class="tv-weather-label">Equity {{ wealth.property_equity_display }} · {{ wealth.property_equity_purchase_pct_display }} of cost</p>
+        <p class="tv-weather-label">Own {{ wealth.property_equity_estimate_pct_display }} of estimate · {{ wealth.property_updated_label }}</p>
+      </div>
+      <div class="tv-wealth-change-badges" aria-label="Property gain or loss since purchase">
+        <span class="tv-wealth-badge{% if wealth.property_change_usd is not None and wealth.property_change_usd < 0 %} tv-wealth-badge-down{% elif wealth.property_change_usd is not None %} tv-wealth-badge-up{% endif %}">{{ wealth.property_change_usd_display }}</span>
+        <span class="tv-wealth-badge{% if wealth.property_change_pct is not None and wealth.property_change_pct < 0 %} tv-wealth-badge-down{% elif wealth.property_change_pct is not None %} tv-wealth-badge-up{% endif %}">{{ wealth.property_change_display }}</span>
+      </div>
+    </div>
+    {% else %}
+    <div class="tv-wealth-balance-row">
+      <div class="tv-wealth-balance-main">
+        <p class="tv-wealth-balance-label">Zestimate</p>
+        <p class="tv-wealth-total tv-wealth-total-calm">—</p>
+      </div>
+    </div>
+    <p class="tv-wealth-place">Property estimate unavailable</p>
+    <p class="tv-weather-label">{{ wealth.property_error_label }}</p>
+    {% endif %}
+  </div>
+</article>

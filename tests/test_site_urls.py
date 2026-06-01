@@ -13,6 +13,8 @@ from core.earthquakes import (
     _parse_feature,
     bay_area_earthquakes,
 )
+from core.wealth import WealthWidget, wealth_widget
+from core.zillow import ZillowQuote, property_zestimate
 from core.weather import CityWeather, HourlyWeather, bay_area_weather
 
 
@@ -52,6 +54,44 @@ def _sample_binance() -> BinancePortfolio:
         period_label="3M",
         status_label="Balance",
         error_label="",
+    )
+
+
+def _sample_wealth() -> WealthWidget:
+    return WealthWidget(
+        retirement_is_available=True,
+        retirement_balance=125000.0,
+        retirement_balance_display="$125,000",
+        retirement_change_usd=8500.0,
+        retirement_change_usd_display="+$8,500",
+        retirement_change_pct=7.28,
+        retirement_change_display="+7.28%",
+        retirement_contributions_display="$2,000",
+        retirement_last_date_label="As of May 30, 2026",
+        retirement_period_label="6M",
+        retirement_chart_points="0.0,30.0 50.0,20.0 100.0,10.0",
+        retirement_chart_area_points="0.0,40.0 0.0,30.0 50.0,20.0 100.0,10.0 100.0,40.0",
+        retirement_chart_date_labels=("Jan 1", "Mar 1", "May 1", "May 15", "May 30"),
+        property_is_available=True,
+        property_address="111 Chestnut St #612, SF",
+        property_price=720000.0,
+        property_price_display="$720,000",
+        property_purchase_display="$635,000",
+        property_mortgage_display="$538,123",
+        property_equity_display="$181,877",
+        property_equity_purchase_pct=28.64,
+        property_equity_purchase_pct_display="+28.64%",
+        property_equity_estimate_pct=25.26,
+        property_equity_estimate_pct_display="+25.26%",
+        property_change_usd=85000.0,
+        property_change_usd_display="+$85,000",
+        property_change_pct=13.39,
+        property_change_display="+13.39%",
+        property_source_label="Manual estimate",
+        property_updated_label="Updated May 30, 2026",
+        property_error_label="",
+        chart_width=100,
+        chart_height=40,
     )
 
 
@@ -287,14 +327,160 @@ class BinanceServiceTests(SimpleTestCase):
         mock_load.assert_called_once()
 
 
+class WealthServiceTests(TestCase):
+    def test_wealth_widget_calculates_retirement_pnl(self):
+        from core.models import PropertyWatchConfig, Retirement401kSnapshot
+
+        Retirement401kSnapshot.objects.create(
+            snapshot_date=datetime(2026, 1, 1).date(),
+            balance="100000.00",
+        )
+        Retirement401kSnapshot.objects.create(
+            snapshot_date=datetime(2026, 5, 1).date(),
+            balance="110000.00",
+            employee_contribution="5000.00",
+            employer_match="1000.00",
+        )
+
+        PropertyWatchConfig.load()
+
+        with patch("core.wealth.property_zestimate") as mock_quote:
+            mock_quote.return_value = ZillowQuote(
+                zestimate=720000.0,
+                source_label="Manual estimate",
+                updated_label="Updated May 30, 2026",
+                is_available=True,
+                error_label="",
+            )
+            result = wealth_widget()
+
+        self.assertTrue(result.retirement_is_available)
+        self.assertEqual(result.retirement_balance, 110000.0)
+        self.assertEqual(result.retirement_change_usd, 4000.0)
+        self.assertAlmostEqual(result.retirement_change_pct, 4.0)
+        self.assertTrue(result.property_is_available)
+        self.assertEqual(result.property_change_usd, 85000.0)
+        self.assertAlmostEqual(result.property_change_pct, 13.385826771653543)
+        self.assertEqual(result.property_mortgage_display, "$538,123")
+        self.assertEqual(result.property_equity_display, "$181,877")
+        self.assertAlmostEqual(result.property_equity_purchase_pct, 28.64204724409449)
+        self.assertAlmostEqual(result.property_equity_estimate_pct, 25.260694444444447)
+
+    def test_wealth_widget_empty_retirement(self):
+        with patch("core.wealth.property_zestimate") as mock_quote:
+            mock_quote.return_value = ZillowQuote(
+                zestimate=None,
+                source_label="Zestimate",
+                updated_label="Not updated yet",
+                is_available=False,
+                error_label="Add manual Zestimate",
+            )
+            result = wealth_widget()
+
+        self.assertFalse(result.retirement_is_available)
+        self.assertTrue(result.property_is_available)
+        self.assertEqual(result.property_source_label, "Cost")
+        self.assertEqual(result.property_change_usd, 0.0)
+        self.assertEqual(result.property_equity_display, "$96,877")
+        self.assertAlmostEqual(result.property_equity_purchase_pct, 15.256220472440945)
+        self.assertAlmostEqual(result.property_equity_estimate_pct, 15.256220472440945)
+
+    def test_wealth_widget_auto_recalculates_mortgage_monthly(self):
+        from core.models import PropertyWatchConfig
+
+        config = PropertyWatchConfig.load()
+        config.purchase_price = "635000.00"
+        config.mortgage_balance = "538123.00"
+        config.mortgage_start_balance = "538123.00"
+        config.mortgage_start_date = (timezone.localdate() - timedelta(days=32))
+        config.mortgage_monthly_payment = "1227.92"
+        config.mortgage_interest_rate = "5.75"
+        config.save()
+
+        with patch("core.wealth.property_zestimate") as mock_quote:
+            mock_quote.return_value = ZillowQuote(
+                zestimate=635000.0,
+                source_label="Manual estimate",
+                updated_label="Updated May 30, 2026",
+                is_available=True,
+                error_label="",
+            )
+            result = wealth_widget()
+
+        self.assertTrue(result.property_is_available)
+        self.assertEqual(result.property_price_display, "$635,000")
+        self.assertEqual(result.property_mortgage_display, "$536,895")
+        self.assertEqual(result.property_equity_display, "$98,105")
+
+
+class ZillowServiceTests(TestCase):
+    @override_settings(
+        ZILLOW_CACHE_SECONDS=86400,
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "zillow-tests",
+            }
+        },
+    )
+    def test_manual_zestimate_skips_fetch(self):
+        from core.models import PropertyWatchConfig
+
+        config = PropertyWatchConfig.load()
+        config.manual_zestimate = "710000.00"
+        config.save()
+
+        with patch("core.zillow._fetch_html") as mock_fetch:
+            quote = property_zestimate()
+
+        self.assertTrue(quote.is_available)
+        self.assertEqual(quote.zestimate, 710000.0)
+        mock_fetch.assert_not_called()
+
+    @override_settings(
+        ZILLOW_CACHE_SECONDS=86400,
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "zillow-fetch-tests",
+            }
+        },
+    )
+    @patch("core.zillow._fetch_html")
+    def test_zillow_fetch_persists_cache_once_per_day(self, mock_fetch):
+        from core.models import PropertyWatchConfig
+
+        config = PropertyWatchConfig.load()
+        config.manual_zestimate = None
+        config.cached_zestimate = None
+        config.cached_zestimate_at = None
+        config.save()
+
+        mock_fetch.return_value = '<html><body>{"price":725000}</body></html>'
+
+        first = property_zestimate()
+        second = property_zestimate()
+
+        self.assertTrue(first.is_available)
+        self.assertEqual(first.zestimate, 725000.0)
+        self.assertEqual(second.zestimate, 725000.0)
+        mock_fetch.assert_called_once()
+
+        config.refresh_from_db()
+        self.assertEqual(float(config.cached_zestimate), 725000.0)
+        self.assertIsNotNone(config.cached_zestimate_at)
+
+
 class SiteUrlTests(TestCase):
+    @patch("core.views.wealth_widget")
     @patch("core.views.binance_us_portfolio")
     @patch("core.views.bay_area_earthquakes")
     @patch("core.views.bay_area_weather")
-    def test_tv_dashboard_renders(self, mock_weather, mock_earthquakes, mock_binance):
+    def test_tv_dashboard_renders(self, mock_weather, mock_earthquakes, mock_binance, mock_wealth):
         mock_weather.return_value = _sample_weather()
         mock_earthquakes.return_value = _sample_earthquakes(recent=True)
         mock_binance.return_value = _sample_binance()
+        mock_wealth.return_value = _sample_wealth()
 
         response = self.client.get(reverse("core:tv_dashboard"))
         self.assertEqual(response.status_code, 200)
@@ -307,6 +493,13 @@ class SiteUrlTests(TestCase):
         self.assertContains(response, "tv-weather-hourly")
         self.assertContains(response, "Bay Area Earthquakes")
         self.assertContains(response, "tv-binance-card")
+        self.assertContains(response, "tv-wealth-card")
+        self.assertContains(response, "401(k)")
+        self.assertContains(response, "$125,000")
+        self.assertContains(response, "111 Chestnut St #612, SF")
+        self.assertContains(response, "+$85,000")
+        self.assertContains(response, "Mortgage $538,123")
+        self.assertContains(response, "Equity $181,877")
         self.assertContains(response, "Balance")
         self.assertContains(response, "$10,410.19")
         self.assertContains(response, "-$1,324.10")
@@ -337,17 +530,19 @@ class SiteUrlTests(TestCase):
         self.assertIn(".jpg", slides[0]["url"])
         self.assertIn("city-new-york.jpg", slides[0]["url"])
 
+    @patch("core.views.wealth_widget")
     @patch("core.views.binance_us_portfolio")
     @patch("core.views.bay_area_earthquakes")
     @patch("core.views.bay_area_weather")
     def test_page_refresh_caps_at_weather_cache_when_slideshow_is_longer(
-        self, mock_weather, mock_earthquakes, mock_binance
+        self, mock_weather, mock_earthquakes, mock_binance, mock_wealth
     ):
         from core.models import TvDisplayConfig
 
         mock_weather.return_value = _sample_weather()
         mock_earthquakes.return_value = _sample_earthquakes(recent=False)
         mock_binance.return_value = _sample_binance()
+        mock_wealth.return_value = _sample_wealth()
 
         config = TvDisplayConfig.load()
         config.slide_duration_seconds = 120
@@ -359,23 +554,30 @@ class SiteUrlTests(TestCase):
         self.assertContains(response, 'data-slide-duration="120"')
         self.assertContains(response, 'data-refresh-seconds="600"')
 
+    @patch("core.views.wealth_widget")
     @patch("core.views.binance_us_portfolio")
     @patch("core.views.bay_area_earthquakes")
     @patch("core.views.bay_area_weather")
     def test_page_refresh_uses_full_slideshow_cycle_when_shorter_than_widget_cache(
-        self, mock_weather, mock_earthquakes, mock_binance
+        self, mock_weather, mock_earthquakes, mock_binance, mock_wealth
     ):
         from core.models import TvDisplayConfig
 
         mock_weather.return_value = _sample_weather()
         mock_earthquakes.return_value = _sample_earthquakes(recent=False)
         mock_binance.return_value = _sample_binance()
+        mock_wealth.return_value = _sample_wealth()
 
         config = TvDisplayConfig.load()
         config.slide_duration_seconds = 12
         config.save()
 
-        with self.settings(TV_REFRESH_SECONDS=60, TV_WEATHER_CACHE_SECONDS=600):
+        with self.settings(
+            TV_REFRESH_SECONDS=60,
+            TV_WEATHER_CACHE_SECONDS=600,
+            BINANCE_US_API_KEY="",
+            BINANCE_US_API_SECRET="",
+        ):
             response = self.client.get(reverse("core:tv_dashboard"))
 
         self.assertContains(response, 'data-slide-duration="12"')
@@ -394,15 +596,17 @@ class SiteUrlTests(TestCase):
         self.assertIsInstance(data, list, "slides JSON must be an array, not a double-encoded string")
         return data
 
+    @patch("core.views.wealth_widget")
     @patch("core.views.binance_us_portfolio")
     @patch("core.views.bay_area_earthquakes")
     @patch("core.views.bay_area_weather")
-    def test_tv_dashboard_info_panels_when_enabled(self, mock_weather, mock_earthquakes, mock_binance):
+    def test_tv_dashboard_info_panels_when_enabled(self, mock_weather, mock_earthquakes, mock_binance, mock_wealth):
         from core.models import TvDisplayConfig
 
         mock_weather.return_value = _sample_weather()
         mock_earthquakes.return_value = _sample_earthquakes(recent=False)
         mock_binance.return_value = _sample_binance()
+        mock_wealth.return_value = _sample_wealth()
 
         config = TvDisplayConfig.load()
         config.show_info_panels = True

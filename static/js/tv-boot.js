@@ -11,6 +11,7 @@
   var gatewayDetected = false;
   var serviceConfig = null;
   var overlayShownAt = 0;
+  var networkFailureHint = false;
 
   var LOCAL_HOSTS = {
     localhost: true,
@@ -430,14 +431,19 @@
         applyGatewayWaitingUi();
       }
 
+      if (xhr.status === 0) {
+        networkFailureHint = true;
+      }
       onFailure(body, xhr.status);
     };
 
     xhr.onerror = function () {
+      networkFailureHint = true;
       onFailure("", 0);
     };
 
     xhr.ontimeout = function () {
+      networkFailureHint = true;
       onFailure("", 0);
     };
 
@@ -500,6 +506,10 @@
   function scheduleRetry(callback) {
     clearRetryTimer();
     pollMs = getPollInterval();
+    if (networkFailureHint && pollMs < 20000) {
+      pollMs = 20000;
+    }
+    networkFailureHint = false;
     retryTimer = window.setTimeout(callback, pollMs);
   }
 
