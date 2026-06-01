@@ -4,6 +4,7 @@ import ssl
 from dataclasses import dataclass
 from decimal import Decimal
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import certifi
@@ -53,6 +54,36 @@ def _fetch_html(url: str) -> str:
         },
     )
     with urlopen(request, timeout=12, context=SSL_CONTEXT) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
+def _scraperapi_key() -> str:
+    return (getattr(settings, "ZILLOW_SCRAPER_API_KEY", "") or "").strip()
+
+
+def _fetch_html_via_scraperapi(url: str) -> str:
+    api_key = _scraperapi_key()
+    if not api_key:
+        raise RuntimeError("missing scraper api key")
+
+    query = urlencode(
+        {
+            "api_key": api_key,
+            "url": url,
+            "render": "true",
+            "keep_headers": "true",
+        }
+    )
+    proxy_url = f"https://api.scraperapi.com/?{query}"
+    request = Request(
+        proxy_url,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    )
+    with urlopen(request, timeout=25, context=SSL_CONTEXT) as response:
         return response.read().decode("utf-8", errors="replace")
 
 
@@ -171,20 +202,30 @@ def _try_fetch_zillow(config: PropertyWatchConfig) -> ZillowQuote | None:
     if cached is not None:
         return cached
 
+    html = None
     try:
         html = _fetch_html(config.zillow_url)
     except HTTPError as error:
-        fallback = _quote_from_config(config, "Manual estimate")
-        if fallback is not None:
-            cache.set(_cache_key(config.zillow_zpid), fallback, _cache_seconds())
-            return fallback
-        return ZillowQuote(
-            zestimate=None,
-            source_label="Zestimate",
-            updated_label=_format_updated_label(config.cached_zestimate_at),
-            is_available=False,
-            error_label=f"Zillow blocked request (HTTP {error.code}); set manual Zestimate in admin",
-        )
+        if error.code == 403 and _scraperapi_key():
+            try:
+                html = _fetch_html_via_scraperapi(config.zillow_url)
+            except (HTTPError, URLError, TimeoutError, OSError):
+                html = None
+        if html is None:
+            fallback = _quote_from_config(config, "Manual estimate")
+            if fallback is not None:
+                cache.set(_cache_key(config.zillow_zpid), fallback, _cache_seconds())
+                return fallback
+            helper = "set manual Zestimate in admin"
+            if not _scraperapi_key():
+                helper = "set manual Zestimate in admin or configure ZILLOW_SCRAPER_API_KEY"
+            return ZillowQuote(
+                zestimate=None,
+                source_label="Zestimate",
+                updated_label=_format_updated_label(config.cached_zestimate_at),
+                is_available=False,
+                error_label=f"Zillow blocked request (HTTP {error.code}); {helper}",
+            )
     except URLError as error:
         reason = getattr(error, "reason", error)
         fallback = _quote_from_config(config, "Manual estimate")

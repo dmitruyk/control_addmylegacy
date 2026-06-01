@@ -66,15 +66,13 @@
       <div class="tv-wealth-balance-main">
         <p class="tv-wealth-balance-label">{{ wealth.property_source_label }}</p>
         <p class="tv-wealth-total" aria-label="Property estimate">{{ wealth.property_price_display }}</p>
-        <p class="tv-weather-label">Purchase price {{ wealth.property_purchase_display }} · Mortgage {{ wealth.property_mortgage_display }}</p>
-        <p class="tv-weather-label">Equity {{ wealth.property_equity_display }} · {{ wealth.property_equity_purchase_pct_display }} of cost</p>
-        <p class="tv-weather-label">Own {{ wealth.property_equity_estimate_pct_display }} of estimate · {{ wealth.property_updated_label }}</p>
       </div>
       <div class="tv-wealth-change-badges" aria-label="Property gain or loss since purchase">
         <span class="tv-wealth-badge{% if wealth.property_change_usd is not None and wealth.property_change_usd < 0 %} tv-wealth-badge-down{% elif wealth.property_change_usd is not None %} tv-wealth-badge-up{% endif %}">{{ wealth.property_change_usd_display }}</span>
         <span class="tv-wealth-badge{% if wealth.property_change_pct is not None and wealth.property_change_pct < 0 %} tv-wealth-badge-down{% elif wealth.property_change_pct is not None %} tv-wealth-badge-up{% endif %}">{{ wealth.property_change_display }}</span>
       </div>
     </div>
+    <p class="tv-weather-label tv-wealth-property-summary">Buy {{ wealth.property_purchase_display }} · Mtg {{ wealth.property_mortgage_display }} · Eq {{ wealth.property_equity_display }} Own {{ wealth.property_equity_estimate_pct_display }} est · {{ wealth.property_updated_label }}</p>
     {% else %}
     <div class="tv-wealth-balance-row">
       <div class="tv-wealth-balance-main">

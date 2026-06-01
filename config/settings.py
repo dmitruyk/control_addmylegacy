@@ -158,7 +158,7 @@ TV_EARTHQUAKE_CACHE_SECONDS = env.int("TV_EARTHQUAKE_CACHE_SECONDS", default=600
 TV_EARTHQUAKE_LOOKBACK_DAYS = env.int("TV_EARTHQUAKE_LOOKBACK_DAYS", default=30)
 TV_EARTHQUAKE_RECENT_DAYS = env.int("TV_EARTHQUAKE_RECENT_DAYS", default=3)
 TV_EARTHQUAKE_MIN_MAGNITUDE = env.float("TV_EARTHQUAKE_MIN_MAGNITUDE", default=2.5)
-TV_EARTHQUAKE_LIMIT = env.int("TV_EARTHQUAKE_LIMIT", default=3)
+TV_EARTHQUAKE_LIMIT = env.int("TV_EARTHQUAKE_LIMIT", default=2)
 TV_EARTHQUAKE_BBOX = {
     "min_lat": 36.5,
     "max_lat": 38.8,
@@ -175,6 +175,8 @@ BINANCE_US_HISTORY_DAYS = env.int("BINANCE_US_HISTORY_DAYS", default=90)
 
 # Property Zestimate widget (Zillow; auto-fetch at most once per day).
 ZILLOW_CACHE_SECONDS = env.int("ZILLOW_CACHE_SECONDS", default=86400)
+# Optional anti-bot proxy for Zillow (e.g., ScraperAPI) when direct requests return 403.
+ZILLOW_SCRAPER_API_KEY = env("ZILLOW_SCRAPER_API_KEY", default="")
 
 CACHES = {
     "default": {

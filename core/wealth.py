@@ -198,7 +198,7 @@ def _load_property_section() -> dict:
         # Keep the widget usable when Zillow blocks automation (HTTP 403).
         effective_price = purchase_price
         source_label = "Cost"
-        updated_label = "Set manual Zestimate in admin"
+        updated_label = "Manual"
         is_available = True
         error_label = ""
 
