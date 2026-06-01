@@ -14,11 +14,9 @@
   <link rel="stylesheet" href="{% static 'css/tv.css' %}?v={{ STATIC_BUILD_ID }}">
 </head>
 <body
-  class="tv-body tv-body-gallery tv-kiosk theme-auto"
+  class="tv-body tv-body-gallery tv-kiosk theme-night"
   data-theme-timezone="{{ TIME_ZONE }}"
-  data-theme-day-start="7"
-  data-theme-day-end="19"
-  data-brightness="{{ theme_brightness }}"
+  data-brightness="night"
   data-service-base="{{ SERVICE_BASE_URL }}"
   data-service-mode="{{ SERVICE_MODE }}"
   data-refresh-seconds="{{ refresh_seconds|default:0 }}"
@@ -48,14 +46,18 @@
 
       <div class="tv-hud-widgets">
         <div class="tv-hud-widget-stack">
-          <div class="tv-hud-earthquake">
-            {% include "partials/tv_earthquake_card.html" %}
-          </div>
-
           <div class="tv-hud-weather">
             {% for item in weather %}
             {% include "partials/tv_weather_card.html" with item=item %}
             {% endfor %}
+          </div>
+
+          <div class="tv-hud-earthquake">
+            {% include "partials/tv_earthquake_card.html" %}
+          </div>
+
+          <div class="tv-hud-binance">
+            {% include "partials/tv_binance_card.html" %}
           </div>
         </div>
       </div>
@@ -85,5 +87,6 @@
   <script src="{% static 'js/tv-boot.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-slideshow.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-clock.js' %}?v={{ STATIC_BUILD_ID }}"></script>
+  <script src="{% static 'js/tv-hud-debug.js' %}?v={{ STATIC_BUILD_ID }}"></script>
 </body>
 </html>

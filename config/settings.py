@@ -158,13 +158,20 @@ TV_EARTHQUAKE_CACHE_SECONDS = env.int("TV_EARTHQUAKE_CACHE_SECONDS", default=600
 TV_EARTHQUAKE_LOOKBACK_DAYS = env.int("TV_EARTHQUAKE_LOOKBACK_DAYS", default=30)
 TV_EARTHQUAKE_RECENT_DAYS = env.int("TV_EARTHQUAKE_RECENT_DAYS", default=3)
 TV_EARTHQUAKE_MIN_MAGNITUDE = env.float("TV_EARTHQUAKE_MIN_MAGNITUDE", default=2.5)
-TV_EARTHQUAKE_LIMIT = env.int("TV_EARTHQUAKE_LIMIT", default=4)
+TV_EARTHQUAKE_LIMIT = env.int("TV_EARTHQUAKE_LIMIT", default=3)
 TV_EARTHQUAKE_BBOX = {
     "min_lat": 36.5,
     "max_lat": 38.8,
     "min_lon": -123.5,
     "max_lon": -121.0,
 }
+
+# Binance US read-only account widget (API key + secret in .env).
+BINANCE_US_API_KEY = env("BINANCE_US_API_KEY", default="")
+BINANCE_US_API_SECRET = env("BINANCE_US_API_SECRET", default="")
+BINANCE_US_API_BASE = env("BINANCE_US_API_BASE", default="https://api.binance.us")
+BINANCE_US_CACHE_SECONDS = env.int("BINANCE_US_CACHE_SECONDS", default=300)
+BINANCE_US_HISTORY_DAYS = env.int("BINANCE_US_HISTORY_DAYS", default=90)
 
 CACHES = {
     "default": {

@@ -1,0 +1,45 @@
+---
+description: TV HUD widget positions, alignment, and sizing (Samsung 4K Tizen)
+globs: static/css/tv.css,templates/core/tv_dashboard.html,templates/partials/tv_*.html
+alwaysApply: false
+---
+
+# TV HUD — positions & alignment
+
+Samsung Q6F QLED 4K kiosk at `/`. **Do not change viewport, slideshow breakpoints, or widget order** unless the user asks.
+
+## Layout (pre-PR style)
+
+| Element | Rule |
+|---------|------|
+| Widget anchor | `.tv-hud-widgets` — `position: absolute`, `bottom: 36px`, `left/right: 48px`, `text-align: right` |
+| Stack | `.tv-hud-widget-stack` — `display: inline-block`, `vertical-align: bottom`, `text-align: left` |
+| Weather row | `.tv-hud-weather` flex; cards `flex: 1 1 220px`, `min-width: 220px`, `margin-left: 16px` (first card `margin-left: 0`) |
+| Full-width cards | `.tv-hud-earthquake` / `.tv-hud-binance` — inner `.tv-widget-card` `width: 100%`, `margin-left: 0` |
+| Stack spacing | Single `--tv-hud-gap` (24px / 28px @1600+) for row `margin-bottom` **and** `.tv-hud-widgets` `bottom` |
+| Overflow | `.tv-gallery` + `body.tv-body-gallery.tv-kiosk` use `overflow: visible` so the weather row is not clipped; `.tv-slideshow` keeps `overflow: hidden` |
+| Tizen cards | No `backdrop-filter` on gallery `.tv-widget-card` (M56 clips the top edge); use solid `var(--card-bg)` |
+| Dark HUD | `theme-night` always; datetime always `#fff` |
+
+## Stack order (mandatory)
+
+weather → earthquake → binance in `templates/core/tv_dashboard.html`.
+
+## Structure
+
+```
+.tv-hud (full screen overlay)
+  .tv-hud-datetime (absolute top-left)
+  .tv-hud-widgets (bottom-right anchor)
+    .tv-hud-widget-stack (inline-block)
+      .tv-hud-weather (flex row, two cards)
+      .tv-hud-earthquake (full width card)
+      .tv-hud-binance (full width card)
+```
+
+## Do not
+
+- Flex-center the whole HUD column on the right (Tizen `margin-left: auto` / `left: auto` issues)
+- Fixed pixel column width (`--tv-hud-widget-width`) that constrains the weather row artificially
+- `.tv-hud-widget-slot` wrappers — use `.tv-hud-weather` / `.tv-hud-earthquake` / `.tv-hud-binance` directly
+- Day theme on gallery HUD

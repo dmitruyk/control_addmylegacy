@@ -93,6 +93,11 @@ html {
   background-image: radial-gradient(circle at top, #101620 0%, #06080c 55%);
 }
 
+.tv-body-gallery.tv-kiosk {
+  /* Tall HUD stack (weather + earthquake + Binance) grows upward; do not clip the top row */
+  overflow: visible;
+}
+
 /* TV / kiosk: full viewport, no scroll, 10-foot typography */
 .tv-kiosk {
   height: 100%;
@@ -105,6 +110,14 @@ html {
 .tv-kiosk .tv-updating {
   height: 100%;
   min-height: 100%;
+}
+
+.tv-kiosk .tv-gallery {
+  /* HUD grows upward from the bottom; do not clip the weather row */
+  overflow: visible;
+}
+
+.tv-kiosk .tv-slideshow {
   overflow: hidden;
 }
 
@@ -628,9 +641,14 @@ html {
   filter: var(--brightness-filter);
 }
 
-.tv-body-gallery.theme-day .tv-hud-datetime,
-.tv-body-gallery.theme-auto[data-brightness="day"] .tv-hud-datetime {
-  text-shadow: 0 2px 12px rgba(255, 255, 255, 0.92);
+/* Tizen M56: backdrop-filter clips content along the top inside rounded cards */
+.tv-body-gallery .tv-widget-card,
+.tv-body-gallery .tv-weather-card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background-clip: padding-box;
+  -webkit-background-clip: padding-box;
+  overflow: visible;
 }
 
 .tv-body-gallery.theme-night .tv-hud-datetime,
@@ -640,10 +658,143 @@ html {
   text-shadow: var(--hud-shadow);
 }
 
+.tv-hud {
+  bottom: 0;
+  box-sizing: border-box;
+  left: 0;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 8;
+}
+
+.tv-hud-datetime {
+  left: 48px;
+  max-width: 45%;
+  pointer-events: auto;
+  position: absolute;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
+  text-shadow: var(--hud-shadow);
+  top: 36px;
+}
+
+.tv-hud-weekday {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.tv-hud-date {
+  color: #fff;
+  font-size: 38px;
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 10px;
+}
+
+.tv-hud-time {
+  color: #fff;
+  font-size: 80px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin: 0;
+}
+
+.tv-hud-ampm {
+  color: #fff;
+  font-size: 32px;
+  font-weight: 600;
+  margin-left: 10px;
+}
+
+.tv-hud-widgets {
+  --tv-hud-gap: 24px;
+  bottom: 24px;
+  bottom: var(--tv-hud-gap);
+  left: 48px;
+  pointer-events: none;
+  position: absolute;
+  right: 48px;
+  text-align: right;
+  z-index: 8;
+}
+
+.tv-hud-widget-stack {
+  display: inline-block;
+  max-width: 100%;
+  overflow: visible;
+  pointer-events: auto;
+  text-align: left;
+  vertical-align: bottom;
+}
+
+.tv-hud-weather,
+.tv-hud-earthquake,
+.tv-hud-binance {
+  box-sizing: border-box;
+  margin-bottom: 24px;
+  margin-bottom: var(--tv-hud-gap, 24px);
+  width: 100%;
+}
+
+.tv-hud-binance {
+  margin-bottom: 0;
+}
+
+.tv-hud-binance .tv-widget-card,
+.tv-hud-earthquake .tv-widget-card {
+  margin-left: 0;
+  width: 100%;
+}
+
+.tv-hud-weather {
+  -webkit-box-align: start;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  overflow: visible;
+  width: 100%;
+}
+
+.tv-hud-weather .tv-widget-card {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1 1 220px;
+  flex: 1 1 220px;
+  margin-left: 16px;
+  min-width: 220px;
+  overflow: visible;
+}
+
+.tv-hud-weather .tv-widget-card:first-child {
+  margin-left: 0;
+}
+
+.tv-widget-card,
+.tv-weather-card {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(12, 18, 28, 0.72);
+  background: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-color: var(--card-border);
+  border-radius: 20px;
+  box-sizing: border-box;
+  min-width: 240px;
+  padding: 20px 22px 18px;
+}
+
 .tv-gallery {
   height: 100%;
   min-height: 100%;
-  overflow: hidden;
+  overflow: visible;
   position: fixed;
   top: 0;
   left: 0;
@@ -655,6 +806,7 @@ html {
   bottom: 0;
   height: 100%;
   left: 0;
+  overflow: hidden;
   position: absolute;
   right: 0;
   top: 0;
@@ -687,7 +839,7 @@ html {
   display: block;
   height: 100%;
   left: 0;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center center;
   position: absolute;
   top: 0;
@@ -706,125 +858,6 @@ html {
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
   text-transform: uppercase;
   z-index: 4;
-}
-
-.tv-hud {
-  bottom: 0;
-  box-sizing: border-box;
-  left: 0;
-  padding: 0;
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  top: 0;
-  z-index: 8;
-}
-
-.tv-hud-datetime {
-  left: 48px;
-  max-width: 45%;
-  pointer-events: auto;
-  position: absolute;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
-  text-shadow: var(--hud-shadow);
-  top: 36px;
-}
-
-.tv-hud-weekday {
-  color: rgba(255, 255, 255, 0.78);
-  color: var(--muted-color);
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  margin: 0 0 8px;
-  text-transform: uppercase;
-}
-
-.tv-hud-date {
-  color: #fff;
-  color: var(--text-color);
-  font-size: 38px;
-  font-weight: 600;
-  line-height: 1.15;
-  margin: 0 0 10px;
-}
-
-.tv-hud-time {
-  color: #fff;
-  color: var(--text-color);
-  font-size: 80px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  margin: 0;
-}
-
-.tv-hud-ampm {
-  color: rgba(255, 255, 255, 0.72);
-  color: var(--muted-color);
-  font-size: 32px;
-  font-weight: 600;
-  margin-left: 10px;
-}
-
-.tv-hud-widgets {
-  bottom: 36px;
-  left: 48px;
-  pointer-events: none;
-  position: absolute;
-  right: 48px;
-  text-align: right;
-  z-index: 8;
-}
-
-.tv-hud-widget-stack {
-  display: inline-block;
-  max-width: 100%;
-  pointer-events: auto;
-  text-align: left;
-  vertical-align: bottom;
-}
-
-.tv-hud-earthquake {
-  margin-bottom: 16px;
-}
-
-.tv-hud-earthquake .tv-widget-card {
-  margin-left: 0;
-  width: 100%;
-}
-
-.tv-hud-weather {
-  display: -webkit-box;
-  display: -webkit-flex;
-  display: flex;
-  width: 100%;
-}
-
-.tv-hud-weather .tv-widget-card {
-  -webkit-box-flex: 1;
-  -webkit-flex: 1 1 220px;
-  flex: 1 1 220px;
-  margin-left: 16px;
-  min-width: 220px;
-}
-
-.tv-hud-weather .tv-widget-card:first-child {
-  margin-left: 0;
-}
-
-.tv-widget-card,
-.tv-weather-card {
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  background: rgba(12, 18, 28, 0.72);
-  background: var(--card-bg);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-color: var(--card-border);
-  border-radius: 20px;
-  box-sizing: border-box;
-  min-width: 240px;
-  padding: 20px 22px 18px;
 }
 
 .tv-weather-city {
@@ -855,7 +888,7 @@ html {
   color: #fbbf24;
   display: block;
   font-size: 42px;
-  line-height: 1;
+  line-height: 1.15;
   min-width: 42px;
   text-align: center;
 }
@@ -890,6 +923,8 @@ html {
   -webkit-justify-content: space-between;
   justify-content: space-between;
   margin-top: 4px;
+  max-width: 100%;
+  overflow: visible;
   padding-top: 12px;
 }
 
@@ -898,6 +933,7 @@ html {
   -webkit-flex: 1;
   flex: 1;
   min-width: 0;
+  overflow: visible;
   text-align: center;
 }
 
@@ -923,6 +959,229 @@ html {
   background: rgba(68, 24, 16, 0.42);
   border-color: rgba(251, 191, 36, 0.72);
   box-shadow: 0 0 24px rgba(251, 191, 36, 0.18);
+}
+
+.tv-binance-card-up {
+  border-color: rgba(252, 213, 53, 0.45);
+}
+
+.tv-binance-card-down {
+  border-color: rgba(246, 70, 93, 0.45);
+}
+
+.tv-binance-balance-row {
+  -webkit-box-align: start;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-pack: justify;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.tv-binance-balance-main {
+  min-width: 0;
+}
+
+.tv-binance-balance-label {
+  color: rgba(255, 255, 255, 0.72);
+  color: var(--muted-color);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.tv-binance-total {
+  color: #fff;
+  color: var(--text-color);
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0;
+}
+
+.tv-binance-total-calm {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.tv-binance-change-badges {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-box-pack: end;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end;
+  margin-left: 12px;
+  max-width: 48%;
+}
+
+.tv-binance-badge {
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-left: 8px;
+  margin-top: 4px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.tv-binance-badge:first-child {
+  margin-left: 0;
+}
+
+.tv-binance-badge-up {
+  background: rgba(14, 203, 129, 0.18);
+  color: #0ecb81;
+}
+
+.tv-binance-badge-down {
+  background: rgba(246, 70, 93, 0.18);
+  color: #f6465d;
+}
+
+.tv-binance-place {
+  color: #fff;
+  color: var(--text-color);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 8px 0 6px;
+}
+
+.tv-binance-chart-wrap {
+  margin-top: 6px;
+}
+
+.tv-binance-period-bar {
+  margin-bottom: 8px;
+}
+
+.tv-binance-period {
+  color: rgba(255, 255, 255, 0.58);
+  color: var(--muted-color);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.tv-binance-period-active {
+  color: #fcd535;
+}
+
+.tv-binance-chart {
+  display: block;
+  height: 64px;
+  width: 100%;
+}
+
+.tv-binance-chart-fill {
+  stroke: none;
+}
+
+.tv-binance-chart-line {
+  fill: none;
+  stroke: #2563eb;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+.tv-binance-chart-dates {
+  color: rgba(255, 255, 255, 0.58);
+  color: var(--muted-color);
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  -webkit-box-pack: justify;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.tv-binance-chart-date {
+  min-width: 0;
+  text-align: center;
+}
+
+.tv-binance-split-row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  margin-top: 14px;
+}
+
+.tv-binance-split-card {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1;
+  flex: 1;
+  min-width: 0;
+}
+
+.tv-binance-split-card + .tv-binance-split-card {
+  margin-left: 12px;
+}
+
+.tv-binance-split-label {
+  color: rgba(255, 255, 255, 0.72);
+  color: var(--muted-color);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.tv-binance-split-value {
+  color: #fff;
+  color: var(--text-color);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0 0 8px;
+}
+
+.tv-binance-asset-icons {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+}
+
+.tv-binance-asset-icon {
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  color: #fff;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  font-size: 10px;
+  font-weight: 800;
+  height: 28px;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  margin-right: 6px;
+  min-width: 28px;
+  padding: 0 4px;
+  text-transform: uppercase;
+}
+
+.tv-binance-asset-icon-cash {
+  background: rgba(252, 213, 53, 0.18);
+  border-color: rgba(252, 213, 53, 0.45);
+  color: #fcd535;
+  font-size: 14px;
 }
 
 .tv-earthquake-current {
@@ -1020,7 +1279,8 @@ html {
 }
 
 .tv-earthquake-item-time {
-  color: rgba(255, 255, 255, 0.58);
+  color: rgba(255, 255, 255, 0.72);
+  color: var(--muted-color);
   font-size: 12px;
   font-weight: 600;
   margin: 0;
@@ -1059,6 +1319,17 @@ html {
   margin: 0;
 }
 
+/* HUD layout debug — enable with ?tv_debug=1 on the dashboard URL */
+.tv-hud-debug-canvas {
+  height: 100%;
+  left: 0;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 10000;
+}
+
 @media screen and (min-width: 1600px) {
   .tv-slide-caption {
     bottom: 210px;
@@ -1072,7 +1343,9 @@ html {
   }
 
   .tv-hud-widgets {
-    bottom: 42px;
+    --tv-hud-gap: 28px;
+    bottom: 28px;
+    bottom: var(--tv-hud-gap);
     left: 56px;
     right: 56px;
   }
@@ -1099,12 +1372,6 @@ html {
     padding: 22px 24px 18px;
   }
 
-  .tv-hud-weather .tv-widget-card {
-    -webkit-flex-basis: 260px;
-    flex-basis: 260px;
-    min-width: 260px;
-  }
-
   .tv-weather-icon {
     font-size: 48px;
     min-width: 48px;
@@ -1129,6 +1396,33 @@ html {
 
   .tv-earthquake-place {
     font-size: 20px;
+  }
+
+  .tv-binance-total {
+    font-size: 42px;
+  }
+
+  .tv-binance-badge {
+    font-size: 15px;
+    padding: 7px 12px;
+  }
+
+  .tv-binance-chart {
+    height: 96px;
+  }
+
+  .tv-binance-chart-dates {
+    font-size: 13px;
+  }
+
+  .tv-binance-split-value {
+    font-size: 24px;
+  }
+
+  .tv-binance-asset-icon {
+    font-size: 11px;
+    height: 32px;
+    min-width: 32px;
   }
 }
 

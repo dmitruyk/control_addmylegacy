@@ -86,7 +86,7 @@ def _parse_feature(feature: dict, now: datetime, recent_days: int) -> Earthquake
 def _fetch_usgs_events() -> list[dict]:
     lookback_days = getattr(settings, "TV_EARTHQUAKE_LOOKBACK_DAYS", 30)
     min_magnitude = getattr(settings, "TV_EARTHQUAKE_MIN_MAGNITUDE", 2.5)
-    limit = getattr(settings, "TV_EARTHQUAKE_LIMIT", 4)
+    limit = getattr(settings, "TV_EARTHQUAKE_LIMIT", 3)
     bbox = getattr(settings, "TV_EARTHQUAKE_BBOX", {})
 
     start_time = (timezone.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
@@ -121,6 +121,7 @@ def bay_area_earthquakes() -> BayAreaEarthquakes:
         return cached
 
     recent_days = getattr(settings, "TV_EARTHQUAKE_RECENT_DAYS", 3)
+    limit = getattr(settings, "TV_EARTHQUAKE_LIMIT", 3)
     now = timezone.now()
     events: list[EarthquakeEvent] = []
 
@@ -129,9 +130,11 @@ def bay_area_earthquakes() -> BayAreaEarthquakes:
             event = _parse_feature(feature, now, recent_days)
             if event is not None:
                 events.append(event)
+            if len(events) >= limit:
+                break
 
         result = BayAreaEarthquakes(
-            events=tuple(events),
+            events=tuple(events[:limit]),
             is_available=True,
             has_recent=any(event.is_recent for event in events),
         )

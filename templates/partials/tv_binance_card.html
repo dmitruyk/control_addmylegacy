@@ -1,0 +1,80 @@
+<article class="tv-widget-card tv-weather-card tv-binance-card{% if binance.is_available and binance.change_pct is not None and binance.change_pct < 0 %} tv-binance-card-down{% elif binance.is_available and binance.change_pct is not None %} tv-binance-card-up{% endif %}">
+  {% if binance.is_available %}
+    <div class="tv-binance-balance-row">
+      <div class="tv-binance-balance-main">
+        <p class="tv-binance-balance-label">{{ binance.status_label }}</p>
+        <p class="tv-binance-total" aria-label="Account balance">{{ binance.total_display }}</p>
+      </div>
+      <div class="tv-binance-change-badges" aria-label="Balance change for {{ binance.period_label }}">
+        <span class="tv-binance-badge{% if binance.change_usd is not None and binance.change_usd < 0 %} tv-binance-badge-down{% elif binance.change_usd is not None %} tv-binance-badge-up{% endif %}">{{ binance.change_usd_display }}</span>
+        <span class="tv-binance-badge{% if binance.change_pct is not None and binance.change_pct < 0 %} tv-binance-badge-down{% elif binance.change_pct is not None %} tv-binance-badge-up{% endif %}">{{ binance.change_display }}</span>
+      </div>
+    </div>
+
+    {% if binance.chart_points %}
+    <div class="tv-binance-chart-wrap">
+      <div class="tv-binance-period-bar" aria-hidden="true">
+        <span class="tv-binance-period tv-binance-period-active">{{ binance.period_label }}</span>
+      </div>
+      <svg class="tv-binance-chart" viewBox="0 0 {{ binance.chart_width }} {{ binance.chart_height }}" preserveAspectRatio="none" role="img" aria-label="Balance trend for {{ binance.period_label }}">
+        <defs>
+          <linearGradient id="tv-binance-chart-gradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#2563eb" stop-opacity="0.42"></stop>
+            <stop offset="100%" stop-color="#2563eb" stop-opacity="0"></stop>
+          </linearGradient>
+        </defs>
+        {% if binance.chart_area_points %}
+        <polygon class="tv-binance-chart-fill" points="{{ binance.chart_area_points }}" fill="url(#tv-binance-chart-gradient)"></polygon>
+        {% endif %}
+        <polyline class="tv-binance-chart-line" points="{{ binance.chart_points }}"></polyline>
+      </svg>
+      {% if binance.chart_date_labels %}
+      <div class="tv-binance-chart-dates">
+        {% for label in binance.chart_date_labels %}
+        <span class="tv-binance-chart-date">{{ label }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="tv-binance-split-row">
+      <div class="tv-binance-split-card">
+        <p class="tv-binance-split-label">Crypto</p>
+        <p class="tv-binance-split-value">{{ binance.crypto_usd_display }}</p>
+        {% if binance.top_assets %}
+        <div class="tv-binance-asset-icons" aria-hidden="true">
+          {% for asset in binance.top_assets %}
+          <span class="tv-binance-asset-icon">{{ asset|slice:":3" }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <div class="tv-binance-split-card">
+        <p class="tv-binance-split-label">Staking</p>
+        <p class="tv-binance-split-value">{{ binance.staking_usd_display }}</p>
+        <div class="tv-binance-asset-icons" aria-hidden="true">
+          <span class="tv-binance-asset-icon tv-binance-asset-icon-staking">⛓</span>
+        </div>
+      </div>
+    </div>
+  {% elif binance.is_configured %}
+    <div class="tv-binance-balance-row">
+      <div class="tv-binance-balance-main">
+        <p class="tv-binance-balance-label">Balance</p>
+        <p class="tv-binance-total tv-binance-total-calm">—</p>
+      </div>
+    </div>
+    <p class="tv-binance-place">Account feed unavailable</p>
+    <p class="tv-weather-label">{{ binance.error_label }}</p>
+  {% else %}
+    <div class="tv-binance-balance-row">
+      <div class="tv-binance-balance-main">
+        <p class="tv-binance-balance-label">Balance</p>
+        <p class="tv-binance-total tv-binance-total-calm">—</p>
+      </div>
+    </div>
+    <p class="tv-binance-place">Binance US not connected</p>
+    <p class="tv-weather-label">{{ binance.error_label }}</p>
+  {% endif %}
+</article>

@@ -71,7 +71,7 @@ On every load, `tv-boot.js`:
 1. Shows **Still waiting** first
 2. Checks `/health/` and verifies the page is the real dashboard (app marker, gallery slides, weather HUD)
 3. Reveals the gallery only when everything is ready
-4. If the service drops later, returns to **Still waiting** and retries automatically
+4. If the service drops later, returns to **Still waiting** and retries automatically (polls bypass TV cache; reloads on new `STATIC_BUILD_ID` or after 3 min stuck)
 
 Optional: set `TV_MAINTENANCE_MODE=true` in `.env` before a restart to redirect `/` → `/updating/` (same page, same waiting logic).
 
@@ -90,6 +90,8 @@ Optional: set `TV_MAINTENANCE_MODE=true` in `.env` before a restart to redirect 
 **Admin → Art slides** controls which images are active and their order.
 
 Weather for **Palo Alto** and **San Francisco** is fetched from [Open-Meteo](https://open-meteo.com/) (no API key) and cached for 10 minutes.
+
+**Binance US** portfolio value and a 3-month trend chart appear above the earthquake widget when `BINANCE_US_API_KEY` and `BINANCE_US_API_SECRET` are set in `.env` (read-only API key recommended). Cached for 5 minutes by default.
 
 Information panels (platform, environment, build) are **hidden by default**. Enable them in **Admin → TV display configuration → Show info panels**.
 
@@ -114,7 +116,7 @@ The page is built for that engine:
 | Refresh | `<meta http-equiv="refresh">` + JS `location.reload()` backup |
 | Deploy | In-page waiting overlay via `tv-boot.js` until dashboard verified |
 | Assets | `tv.css` + `tv-boot.js` + `tv-theme.js` + `tv-clock.js` + `tv-slideshow.js` — no Tailwind, no CDN scripts |
-| Brightness | Always **Auto** via `tv-theme.js` — day 7:00–19:00 **San Francisco** (`America/Los_Angeles`), night otherwise. No manual override. Actual panel brightness is Samsung **Eco Solution → Ambient Light Detection**, not the webpage |
+| Brightness | Always **dark mode** on the gallery HUD (`theme-night`) for readable widgets over photos. Actual panel brightness is Samsung **Eco Solution → Ambient Light Detection**, not the webpage |
 | No-JS | Server-rendered date/time still visible via `<noscript>` |
 
 Point the Samsung TV browser to `https://control.addmylegacy.com`. Typography scales at 1600px+ and 2560px+ breakpoints for 10-foot viewing.

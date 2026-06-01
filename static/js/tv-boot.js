@@ -3,12 +3,14 @@
 
   var pollMs = 3000;
   var monitorMs = 10000;
+  var stuckOverlayMs = 180000;
   var updatingEl = null;
   var rootEl = null;
   var monitoring = false;
   var retryTimer = null;
   var gatewayDetected = false;
   var serviceConfig = null;
+  var overlayShownAt = 0;
 
   var LOCAL_HOSTS = {
     localhost: true,
@@ -58,6 +60,49 @@
     }
 
     return normalizedBase + normalizedPath;
+  }
+
+  function cacheBustUrl(url) {
+    var separator = String(url || "").indexOf("?") === -1 ? "?" : "&";
+
+    return String(url || "") + separator + "_=" + new Date().getTime();
+  }
+
+  function getCurrentBuildId() {
+    var meta = document.querySelector('meta[name="aml-static-build"]');
+
+    return meta && meta.getAttribute ? (meta.getAttribute("content") || "") : "";
+  }
+
+  function extractBuildId(html) {
+    var match = String(html || "").match(/name="aml-static-build"\s+content="([^"]+)"/);
+
+    return match ? match[1] : "";
+  }
+
+  function shouldReloadForHtml(html) {
+    var remoteBuild = extractBuildId(html);
+    var localBuild = getCurrentBuildId();
+
+    return !!(remoteBuild && localBuild && remoteBuild !== localBuild);
+  }
+
+  function isOverlayVisible() {
+    return !!(
+      updatingEl &&
+      updatingEl.className &&
+      updatingEl.className.indexOf("tv-updating-visible") !== -1
+    );
+  }
+
+  function markOverlayShown() {
+    if (!overlayShownAt) {
+      overlayShownAt = new Date().getTime();
+    }
+  }
+
+  function clearOverlayShown() {
+    overlayShownAt = 0;
   }
 
   function isLocalHost(hostname) {
@@ -114,13 +159,13 @@
   function openDashboard() {
     var config = getServiceConfig();
     var currentOrigin = normalizeBase(window.location.origin || "");
+    var target = config.dashboardPath;
 
-    if (config.base === currentOrigin) {
-      window.location.replace(config.dashboardPath);
-      return;
+    if (config.base !== currentOrigin) {
+      target = config.dashboardUrl;
     }
 
-    window.location.replace(config.dashboardUrl);
+    window.location.replace(cacheBustUrl(target));
   }
 
   function getAppMarker() {
@@ -325,6 +370,7 @@
         ? "tv-updating tv-updating-visible tv-updating-synology"
         : "tv-updating tv-updating-visible";
       updatingEl.setAttribute("aria-hidden", "false");
+      markOverlayShown();
 
       if (rootEl) {
         rootEl.className = "tv-gallery tv-content-hidden";
@@ -332,6 +378,7 @@
     } else {
       updatingEl.className = "tv-updating";
       updatingEl.setAttribute("aria-hidden", "true");
+      clearOverlayShown();
 
       if (rootEl) {
         rootEl.className = "tv-gallery";
@@ -355,8 +402,15 @@
       return;
     }
 
-    xhr.open("GET", url, true);
+    xhr.open("GET", cacheBustUrl(url), true);
     xhr.timeout = 8000;
+
+    try {
+      xhr.setRequestHeader("Cache-Control", "no-cache");
+      xhr.setRequestHeader("Pragma", "no-cache");
+    } catch (headerError) {
+      /* ignore — not all engines allow these on GET */
+    }
 
     xhr.onreadystatechange = function () {
       var body;
@@ -477,6 +531,63 @@
     }
   }
 
+  function reloadDashboard() {
+    setUpdatingStatus("Loading updated dashboard…");
+    openDashboard();
+  }
+
+  function handleRecoveredDashboardHtml(html) {
+    if (shouldReloadForHtml(html)) {
+      reloadDashboard();
+      return true;
+    }
+
+    if (!isDashboardReady()) {
+      reloadDashboard();
+      return true;
+    }
+
+    if (isOverlayVisible()) {
+      gatewayDetected = false;
+      revealDashboard();
+    }
+
+    return false;
+  }
+
+  function recoverFromStuckOverlay() {
+    if (!isOverlayVisible() || !overlayShownAt) {
+      return;
+    }
+
+    if (new Date().getTime() - overlayShownAt < stuckOverlayMs) {
+      return;
+    }
+
+    setUpdatingStatus("Still waiting — forcing refresh…");
+
+    fetchHealth(
+      function () {
+        fetchDashboardPage(
+          function (html) {
+            if (isValidDashboardHtml(html)) {
+              reloadDashboard();
+              return;
+            }
+
+            scheduleRetry(attemptShowDashboard);
+          },
+          function () {
+            scheduleRetry(attemptShowDashboard);
+          }
+        );
+      },
+      function () {
+        scheduleRetry(attemptShowDashboard);
+      }
+    );
+  }
+
   function revealDashboard() {
     clearRetryTimer();
     setUpdatingVisible(false);
@@ -515,6 +626,7 @@
 
   function attemptShowDashboard() {
     setUpdatingVisible(true);
+    recoverFromStuckOverlay();
 
     if (isDashboardDocument() && isDashboardReady()) {
       setUpdatingStatus("Dashboard page ready.");
@@ -524,7 +636,26 @@
 
     if (isDashboardDocument()) {
       setUpdatingStatus("Still waiting — preparing gallery…");
-      scheduleRetry(attemptShowDashboard);
+
+      fetchHealth(
+        function () {
+          fetchDashboardPage(
+            function (html) {
+              if (handleRecoveredDashboardHtml(html)) {
+                return;
+              }
+
+              revealDashboard();
+            },
+            function () {
+              scheduleRetry(attemptShowDashboard);
+            }
+          );
+        },
+        function () {
+          scheduleRetry(attemptShowDashboard);
+        }
+      );
       return;
     }
 
@@ -535,7 +666,7 @@
         fetchDashboardPage(
           function () {
             setUpdatingStatus("Dashboard page verified. Loading…");
-            openDashboard();
+            reloadDashboard();
           },
           function () {
             setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
@@ -565,6 +696,8 @@
     monitorMs = Math.max(getPollInterval() * 2, 10000);
 
     window.setInterval(function () {
+      recoverFromStuckOverlay();
+
       if (!isDashboardDocument()) {
         setUpdatingVisible(true);
         applyGatewayWaitingUi();
@@ -573,15 +706,24 @@
       }
 
       fetchDashboardPage(
-        function () {
-          if (!isDashboardReady()) {
-            setUpdatingVisible(true);
-            setUpdatingStatus("Still waiting — restoring gallery…");
-            scheduleRetry(attemptShowDashboard);
-          }
+        function (html) {
+          handleRecoveredDashboardHtml(html);
         },
         function () {
           if (isDashboardDocument() && isDashboardReady()) {
+            if (isOverlayVisible()) {
+              fetchHealth(
+                function () {
+                  gatewayDetected = false;
+                  revealDashboard();
+                },
+                function () {
+                  setUpdatingVisible(true);
+                  setUpdatingStatus(serviceStatusLabel("Still waiting for"));
+                  scheduleRetry(attemptShowDashboard);
+                }
+              );
+            }
             return;
           }
 
@@ -596,22 +738,15 @@
 
   function startSoftRefresh() {
     var refreshMs = getRefreshInterval();
-    var currentBuildMeta;
-    var currentBuildId;
 
     if (!refreshMs || !isDashboardDocument()) {
       return;
     }
 
-    currentBuildMeta = document.querySelector('meta[name="aml-static-build"]');
-    currentBuildId = currentBuildMeta ? currentBuildMeta.getAttribute("content") : "";
-
     window.setInterval(function () {
       fetchDashboardPage(
         function (html) {
-          var match = String(html).match(/name="aml-static-build"\s+content="([^"]+)"/);
-
-          if (match && currentBuildId && match[1] !== currentBuildId) {
+          if (shouldReloadForHtml(html)) {
             window.location.reload();
           }
         },

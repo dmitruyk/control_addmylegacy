@@ -7,6 +7,7 @@ from django.templatetags.static import static
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
+from core.binance_us import binance_us_portfolio
 from core.earthquakes import bay_area_earthquakes
 from core.models import ArtSlide, TvDisplayConfig
 from core.weather import bay_area_weather
@@ -14,11 +15,16 @@ from core.weather import bay_area_weather
 STANDALONE_WAIT_PATH = Path(settings.BASE_DIR) / "deploy" / "updating.html"
 
 
+def _no_store(response: HttpResponse) -> HttpResponse:
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response["Pragma"] = "no-cache"
+    response["Expires"] = "0"
+    return response
+
+
 def _standalone_wait_response() -> HttpResponse:
     content = STANDALONE_WAIT_PATH.read_text(encoding="utf-8")
-    response = HttpResponse(content, content_type="text/html; charset=utf-8")
-    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
-    return response
+    return _no_store(HttpResponse(content, content_type="text/html; charset=utf-8"))
 
 
 def _slide_url(request, static_path: str) -> str:
@@ -48,9 +54,7 @@ TV_THEME_DAY_END_HOUR = 19
 
 
 def _theme_brightness(local_moment) -> str:
-    hour = local_moment.hour
-    if TV_THEME_DAY_START_HOUR <= hour < TV_THEME_DAY_END_HOUR:
-        return "day"
+    """Gallery HUD always renders in high-contrast dark mode."""
     return "night"
 
 
@@ -77,17 +81,18 @@ def _dashboard_context(request):
         "slides": slides,
         "weather": bay_area_weather(),
         "earthquakes": bay_area_earthquakes(),
+        "binance": binance_us_portfolio(),
     }
 
 
 @require_GET
 def tv_dashboard(request):
-    return render(request, "core/tv_dashboard.html", _dashboard_context(request))
+    return _no_store(render(request, "core/tv_dashboard.html", _dashboard_context(request)))
 
 
 @require_GET
 def updating_page(request):
-    return render(request, "core/tv_dashboard.html", _dashboard_context(request))
+    return _no_store(render(request, "core/tv_dashboard.html", _dashboard_context(request)))
 
 
 @require_GET
@@ -99,8 +104,7 @@ def wait_page(request):
             "poll_seconds": settings.TV_HEALTH_POLL_SECONDS,
         },
     )
-    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
-    return response
+    return _no_store(response)
 
 
 @require_GET
@@ -114,8 +118,7 @@ def service_worker_unregister(request):
     path = Path(settings.BASE_DIR) / "static" / "js" / "tv-sw-unregister.js"
     response = HttpResponse(path.read_text(encoding="utf-8"), content_type="application/javascript")
     response["Service-Worker-Allowed"] = "/"
-    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
-    return response
+    return _no_store(response)
 
 
 def page_not_found(request, exception):
@@ -126,9 +129,7 @@ def page_not_found(request, exception):
 
 @require_GET
 def health(request):
-    response = HttpResponse("ok", content_type="text/plain")
-    response["Cache-Control"] = "no-store, no-cache, must-revalidate"
-    return response
+    return _no_store(HttpResponse("ok", content_type="text/plain"))
 
 
 @require_GET
