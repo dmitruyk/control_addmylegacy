@@ -39,6 +39,17 @@ def _slide_url(request, static_path: str) -> str:
     return url
 
 
+def _widget_refresh_ceiling_seconds() -> int:
+    """Shortest HUD widget cache TTL — page reload should not exceed this."""
+    intervals = [
+        getattr(settings, "TV_WEATHER_CACHE_SECONDS", 600),
+        getattr(settings, "TV_EARTHQUAKE_CACHE_SECONDS", 600),
+    ]
+    if getattr(settings, "BINANCE_US_API_KEY", ""):
+        intervals.append(getattr(settings, "BINANCE_US_CACHE_SECONDS", 300))
+    return min(intervals)
+
+
 def _page_refresh_seconds(display_config, slide_count: int) -> int:
     configured = getattr(settings, "TV_REFRESH_SECONDS", 0) or 0
     if configured < 1:
@@ -46,7 +57,8 @@ def _page_refresh_seconds(display_config, slide_count: int) -> int:
 
     slide_duration = display_config.slide_duration_seconds or 12
     full_cycle = slide_duration * max(slide_count, 1)
-    return max(configured, full_cycle)
+    widget_ceiling = _widget_refresh_ceiling_seconds()
+    return max(configured, min(full_cycle, widget_ceiling))
 
 
 TV_THEME_DAY_START_HOUR = 7

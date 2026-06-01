@@ -13,7 +13,7 @@ from core.earthquakes import (
     _parse_feature,
     bay_area_earthquakes,
 )
-from core.weather import CityWeather, HourlyWeather
+from core.weather import CityWeather, HourlyWeather, bay_area_weather
 
 
 def _sample_weather():
@@ -64,6 +64,36 @@ def _sample_earthquakes(recent: bool = True) -> BayAreaEarthquakes:
         is_available=True,
         has_recent=recent,
     )
+
+
+class WeatherServiceTests(SimpleTestCase):
+    @override_settings(
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "weather-tests",
+            }
+        }
+    )
+    @patch("core.weather._fetch_forecast")
+    def test_bay_area_weather_caches_results(self, mock_fetch):
+        mock_fetch.return_value = {
+            "current": {"time": "2026-05-30T12:00", "temperature_2m": 20.4, "weather_code": 0},
+            "hourly": {
+                "time": ["2026-05-30T12:00", "2026-05-30T13:00"],
+                "temperature_2m": [20.4, 19.8],
+                "weather_code": [0, 1],
+            },
+        }
+
+        first = bay_area_weather()
+        second = bay_area_weather()
+
+        self.assertTrue(first[0].is_available)
+        self.assertEqual(first[0].city, "Palo Alto")
+        self.assertEqual(first[0].temperature_c, 20)
+        self.assertEqual(first, second)
+        self.assertEqual(mock_fetch.call_count, len(first))
 
 
 class EarthquakeServiceTests(SimpleTestCase):
@@ -310,7 +340,9 @@ class SiteUrlTests(TestCase):
     @patch("core.views.binance_us_portfolio")
     @patch("core.views.bay_area_earthquakes")
     @patch("core.views.bay_area_weather")
-    def test_page_refresh_waits_for_full_slideshow_cycle(self, mock_weather, mock_earthquakes, mock_binance):
+    def test_page_refresh_caps_at_weather_cache_when_slideshow_is_longer(
+        self, mock_weather, mock_earthquakes, mock_binance
+    ):
         from core.models import TvDisplayConfig
 
         mock_weather.return_value = _sample_weather()
@@ -321,11 +353,33 @@ class SiteUrlTests(TestCase):
         config.slide_duration_seconds = 120
         config.save()
 
-        with self.settings(TV_REFRESH_SECONDS=60):
+        with self.settings(TV_REFRESH_SECONDS=60, TV_WEATHER_CACHE_SECONDS=600, BINANCE_US_API_KEY=""):
             response = self.client.get(reverse("core:tv_dashboard"))
 
         self.assertContains(response, 'data-slide-duration="120"')
-        self.assertContains(response, 'data-refresh-seconds="3120"')
+        self.assertContains(response, 'data-refresh-seconds="600"')
+
+    @patch("core.views.binance_us_portfolio")
+    @patch("core.views.bay_area_earthquakes")
+    @patch("core.views.bay_area_weather")
+    def test_page_refresh_uses_full_slideshow_cycle_when_shorter_than_widget_cache(
+        self, mock_weather, mock_earthquakes, mock_binance
+    ):
+        from core.models import TvDisplayConfig
+
+        mock_weather.return_value = _sample_weather()
+        mock_earthquakes.return_value = _sample_earthquakes(recent=False)
+        mock_binance.return_value = _sample_binance()
+
+        config = TvDisplayConfig.load()
+        config.slide_duration_seconds = 12
+        config.save()
+
+        with self.settings(TV_REFRESH_SECONDS=60, TV_WEATHER_CACHE_SECONDS=600):
+            response = self.client.get(reverse("core:tv_dashboard"))
+
+        self.assertContains(response, 'data-slide-duration="12"')
+        self.assertContains(response, 'data-refresh-seconds="312"')
 
     def _parse_slides_json(self, html: str) -> list:
         import json
