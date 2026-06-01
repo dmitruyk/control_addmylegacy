@@ -1299,7 +1299,7 @@ html {
 
 .tv-wealth-property-summary {
   display: block;
-  max-width: 24ch;
+  max-width: 56ch;
   line-height: 1.2;
   margin-top: 4px;
   overflow: hidden;

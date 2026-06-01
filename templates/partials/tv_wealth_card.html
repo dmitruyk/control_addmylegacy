@@ -72,7 +72,7 @@
         <span class="tv-wealth-badge{% if wealth.property_change_pct is not None and wealth.property_change_pct < 0 %} tv-wealth-badge-down{% elif wealth.property_change_pct is not None %} tv-wealth-badge-up{% endif %}">{{ wealth.property_change_display }}</span>
       </div>
     </div>
-    <p class="tv-weather-label tv-wealth-property-summary">Buy {{ wealth.property_purchase_display }} · Mtg {{ wealth.property_mortgage_display }} · Eq {{ wealth.property_equity_display }} Own {{ wealth.property_equity_estimate_pct_display }} est · {{ wealth.property_updated_label }}</p>
+    <p class="tv-weather-label tv-wealth-property-summary">Buy {{ wealth.property_purchase_display }} · Mtg {{ wealth.property_mortgage_display }} · Eq {{ wealth.property_equity_display }} Own {{ wealth.property_equity_estimate_pct_display }}</p>
     {% else %}
     <div class="tv-wealth-balance-row">
       <div class="tv-wealth-balance-main">
