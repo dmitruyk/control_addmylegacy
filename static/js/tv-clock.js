@@ -140,29 +140,6 @@
     setText(ampmEl, clock.ampm);
   }
 
-  function readPositiveIntAttr(name, fallback) {
-    var bodyEl = document.body;
-    var value = bodyEl && bodyEl.getAttribute ? parseInt(bodyEl.getAttribute(name), 10) : NaN;
-
-    if (isNaN(value) || value < 1) {
-      return fallback || 0;
-    }
-
-    return value;
-  }
-
-  function scheduleRefresh() {
-    var refreshSeconds = readPositiveIntAttr("data-refresh-seconds", 0);
-    var slideDurationSeconds = readPositiveIntAttr("data-slide-duration", 12);
-
-    if (!refreshSeconds) {
-      return;
-    }
-
-    window.setTimeout(function () {
-      window.location.reload();
-    }, Math.max(refreshSeconds, slideDurationSeconds) * 1000);
-  }
 
   function start() {
     weekdayEl = document.getElementById("tv-hud-weekday");
@@ -177,7 +154,6 @@
     readTimeZone();
     tick();
     window.setInterval(tick, 1000);
-    scheduleRefresh();
   }
 
   if (document.readyState === "loading") {

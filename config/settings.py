@@ -135,11 +135,15 @@ GOOGLE_ANALYTICS_ID = env("GOOGLE_ANALYTICS_ID", default="").strip()
 # Bump on deploy to bust TV browser cache for static assets.
 STATIC_BUILD_ID = env("STATIC_BUILD_ID", default="1")
 
-# Auto-refresh interval for the TV dashboard (seconds); 0 disables refresh.
-TV_REFRESH_SECONDS = env.int("TV_REFRESH_SECONDS", default=60)
+# Deprecated: full-page reload is disabled; widgets poll /api/tv/widgets/* independently.
+TV_REFRESH_SECONDS = env.int("TV_REFRESH_SECONDS", default=0)
 
 # How often the TV page polls /health/ during deploy recovery (seconds).
 TV_HEALTH_POLL_SECONDS = env.int("TV_HEALTH_POLL_SECONDS", default=3)
+
+# Async HUD widget poll intervals (seconds) — match server-side cache TTLs where applicable.
+TV_WEALTH_POLL_SECONDS = env.int("TV_WEALTH_POLL_SECONDS", default=600)
+TV_DISPLAY_POLL_SECONDS = env.int("TV_DISPLAY_POLL_SECONDS", default=60)
 
 # When True, / redirects to /updating/ (enable before container restart during deploy).
 TV_MAINTENANCE_MODE = env.bool("TV_MAINTENANCE_MODE", default=False)

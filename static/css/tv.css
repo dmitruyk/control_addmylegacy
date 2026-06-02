@@ -477,8 +477,10 @@ html {
   }
 }
 
+/* opacity (not visibility) so Tizen still decodes slide images while the wait overlay is up */
 .tv-content-hidden {
-  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media screen and (min-width: 1600px) {

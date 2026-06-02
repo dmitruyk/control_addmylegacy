@@ -511,6 +511,7 @@ class SiteUrlTests(TestCase):
         self.assertContains(response, "M4.2")
         self.assertContains(response, "tv-earthquake-card-recent")
         self.assertContains(response, "tv-slides-data")
+        self.assertContains(response, 'data-slide-count="44"')
         self.assertContains(response, "Still waiting")
         self.assertContains(response, "tv-boot.js")
         self.assertContains(response, "tv-theme.js")
@@ -526,7 +527,7 @@ class SiteUrlTests(TestCase):
         self.assertNotContains(response, "tv-info-panels")
 
         slides = self._parse_slides_json(response.content.decode())
-        self.assertEqual(len(slides), 26)
+        self.assertEqual(len(slides), 44)
         self.assertIn(".jpg", slides[0]["url"])
         self.assertIn("city-new-york.jpg", slides[0]["url"])
 
@@ -534,7 +535,72 @@ class SiteUrlTests(TestCase):
     @patch("core.views.binance_us_portfolio")
     @patch("core.views.bay_area_earthquakes")
     @patch("core.views.bay_area_weather")
-    def test_page_refresh_caps_at_weather_cache_when_slideshow_is_longer(
+    def test_tv_dashboard_has_async_widget_poll_attributes(
+        self, mock_weather, mock_earthquakes, mock_binance, mock_wealth
+    ):
+        mock_weather.return_value = _sample_weather()
+        mock_earthquakes.return_value = _sample_earthquakes(recent=False)
+        mock_binance.return_value = _sample_binance()
+        mock_wealth.return_value = _sample_wealth()
+
+        response = self.client.get(reverse("core:tv_dashboard"))
+
+        self.assertContains(response, "tv-widgets.js")
+        self.assertContains(response, 'data-weather-poll-seconds="600"')
+        self.assertContains(response, 'data-display-config-url="/api/tv/display-config/"')
+        self.assertNotContains(response, "data-refresh-seconds")
+
+    @patch("core.views.bay_area_weather")
+    def test_tv_widget_weather_fragment(self, mock_weather):
+        mock_weather.return_value = _sample_weather()
+
+        response = self.client.get(reverse("core:tv_widget_weather"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Palo Alto")
+        self.assertContains(response, "tv-weather-card")
+
+    @patch("core.views.bay_area_earthquakes")
+    def test_tv_widget_earthquake_fragment(self, mock_earthquakes):
+        mock_earthquakes.return_value = _sample_earthquakes(recent=True)
+
+        response = self.client.get(reverse("core:tv_widget_earthquake"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Bay Area Earthquakes")
+
+    @patch("core.views.wealth_widget")
+    def test_tv_widget_wealth_fragment(self, mock_wealth):
+        mock_wealth.return_value = _sample_wealth()
+
+        response = self.client.get(reverse("core:tv_widget_wealth"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "401(k)")
+
+    @patch("core.views.binance_us_portfolio")
+    def test_tv_widget_binance_fragment(self, mock_binance):
+        mock_binance.return_value = _sample_binance()
+
+        response = self.client.get(reverse("core:tv_widget_binance"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "tv-binance-card")
+
+    def test_tv_display_config_json(self):
+        response = self.client.get(reverse("core:tv_display_config"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("static_build_id", payload)
+        self.assertIn("slide_duration_seconds", payload)
+        self.assertIn("transition_seconds", payload)
+
+    @patch("core.views.wealth_widget")
+    @patch("core.views.binance_us_portfolio")
+    @patch("core.views.bay_area_earthquakes")
+    @patch("core.views.bay_area_weather")
+    def test_long_slideshow_does_not_set_page_refresh(
         self, mock_weather, mock_earthquakes, mock_binance, mock_wealth
     ):
         from core.models import TvDisplayConfig
@@ -548,17 +614,16 @@ class SiteUrlTests(TestCase):
         config.slide_duration_seconds = 120
         config.save()
 
-        with self.settings(TV_REFRESH_SECONDS=60, TV_WEATHER_CACHE_SECONDS=600, BINANCE_US_API_KEY=""):
-            response = self.client.get(reverse("core:tv_dashboard"))
+        response = self.client.get(reverse("core:tv_dashboard"))
 
         self.assertContains(response, 'data-slide-duration="120"')
-        self.assertContains(response, 'data-refresh-seconds="600"')
+        self.assertNotContains(response, "data-refresh-seconds")
 
     @patch("core.views.wealth_widget")
     @patch("core.views.binance_us_portfolio")
     @patch("core.views.bay_area_earthquakes")
     @patch("core.views.bay_area_weather")
-    def test_page_refresh_uses_full_slideshow_cycle_when_shorter_than_widget_cache(
+    def test_short_slideshow_does_not_set_page_refresh(
         self, mock_weather, mock_earthquakes, mock_binance, mock_wealth
     ):
         from core.models import TvDisplayConfig
@@ -572,16 +637,10 @@ class SiteUrlTests(TestCase):
         config.slide_duration_seconds = 12
         config.save()
 
-        with self.settings(
-            TV_REFRESH_SECONDS=60,
-            TV_WEATHER_CACHE_SECONDS=600,
-            BINANCE_US_API_KEY="",
-            BINANCE_US_API_SECRET="",
-        ):
-            response = self.client.get(reverse("core:tv_dashboard"))
+        response = self.client.get(reverse("core:tv_dashboard"))
 
         self.assertContains(response, 'data-slide-duration="12"')
-        self.assertContains(response, 'data-refresh-seconds="312"')
+        self.assertNotContains(response, "data-refresh-seconds")
 
     def _parse_slides_json(self, html: str) -> list:
         import json

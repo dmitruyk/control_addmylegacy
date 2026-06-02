@@ -54,6 +54,7 @@ class ArtSlide(models.Model):
     class Category(models.TextChoices):
         CITY = "city", "City"
         NATURE = "nature", "Nature"
+        COSMOS = "cosmos", "Cosmos"
 
     title = models.CharField(max_length=120)
     category = models.CharField(max_length=16, choices=Category.choices)

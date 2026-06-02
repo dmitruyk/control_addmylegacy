@@ -1,8 +1,9 @@
 from pathlib import Path
 
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.utils import timezone
 from django.views.decorators.http import require_GET
@@ -28,6 +29,10 @@ def _standalone_wait_response() -> HttpResponse:
     return _no_store(HttpResponse(content, content_type="text/html; charset=utf-8"))
 
 
+def _slide_file_exists(static_path: str) -> bool:
+    return (Path(settings.BASE_DIR) / "static" / static_path).is_file()
+
+
 def _slide_url(request, static_path: str) -> str:
     url = static(static_path)
     build_id = getattr(settings, "STATIC_BUILD_ID", "1")
@@ -40,35 +45,18 @@ def _slide_url(request, static_path: str) -> str:
     return url
 
 
-def _widget_refresh_ceiling_seconds() -> int:
-    """Shortest HUD widget cache TTL — page reload should not exceed this."""
-    intervals = [
-        getattr(settings, "TV_WEATHER_CACHE_SECONDS", 600),
-        getattr(settings, "TV_EARTHQUAKE_CACHE_SECONDS", 600),
-    ]
+def _widget_poll_seconds() -> dict[str, int]:
+    binance_poll = 0
     if getattr(settings, "BINANCE_US_API_KEY", ""):
-        intervals.append(getattr(settings, "BINANCE_US_CACHE_SECONDS", 300))
-    return min(intervals)
+        binance_poll = getattr(settings, "BINANCE_US_CACHE_SECONDS", 300)
 
-
-def _page_refresh_seconds(display_config, slide_count: int) -> int:
-    configured = getattr(settings, "TV_REFRESH_SECONDS", 0) or 0
-    if configured < 1:
-        return 0
-
-    slide_duration = display_config.slide_duration_seconds or 12
-    full_cycle = slide_duration * max(slide_count, 1)
-    widget_ceiling = _widget_refresh_ceiling_seconds()
-    return max(configured, min(full_cycle, widget_ceiling))
-
-
-TV_THEME_DAY_START_HOUR = 7
-TV_THEME_DAY_END_HOUR = 19
-
-
-def _theme_brightness(local_moment) -> str:
-    """Gallery HUD always renders in high-contrast dark mode."""
-    return "night"
+    return {
+        "weather": getattr(settings, "TV_WEATHER_CACHE_SECONDS", 600),
+        "earthquake": getattr(settings, "TV_EARTHQUAKE_CACHE_SECONDS", 600),
+        "wealth": getattr(settings, "TV_WEALTH_POLL_SECONDS", 600),
+        "binance": binance_poll,
+        "display": getattr(settings, "TV_DISPLAY_POLL_SECONDS", 60),
+    }
 
 
 def _dashboard_context(request):
@@ -77,6 +65,8 @@ def _dashboard_context(request):
     slides = []
 
     for slide in ArtSlide.objects.filter(is_active=True):
+        if not _slide_file_exists(slide.static_path):
+            continue
         slides.append(
             {
                 "url": _slide_url(request, slide.static_path),
@@ -89,7 +79,7 @@ def _dashboard_context(request):
         "now": now,
         "theme_brightness": _theme_brightness(now),
         "TIME_ZONE": settings.TIME_ZONE,
-        "refresh_seconds": _page_refresh_seconds(display_config, len(slides)),
+        "widget_poll": _widget_poll_seconds(),
         "display_config": display_config,
         "slides": slides,
         "weather": bay_area_weather(),
@@ -97,6 +87,15 @@ def _dashboard_context(request):
         "wealth": wealth_widget(),
         "binance": binance_us_portfolio(),
     }
+
+
+TV_THEME_DAY_START_HOUR = 7
+TV_THEME_DAY_END_HOUR = 19
+
+
+def _theme_brightness(local_moment) -> str:
+    """Gallery HUD always renders in high-contrast dark mode."""
+    return "night"
 
 
 @require_GET
@@ -139,6 +138,58 @@ def page_not_found(request, exception):
     response = wait_page(request)
     response.status_code = 404
     return response
+
+
+@require_GET
+def tv_display_config(request):
+    display_config = TvDisplayConfig.load()
+    payload = {
+        "static_build_id": getattr(settings, "STATIC_BUILD_ID", "1"),
+        "slide_duration_seconds": display_config.slide_duration_seconds,
+        "transition_seconds": float(display_config.transition_seconds),
+        "slide_count": ArtSlide.objects.filter(is_active=True).count(),
+    }
+    return _no_store(JsonResponse(payload))
+
+
+@require_GET
+def tv_widget_weather(request):
+    html = render_to_string(
+        "partials/tv_hud_weather_fragment.html",
+        {"weather": bay_area_weather()},
+        request=request,
+    )
+    return _no_store(HttpResponse(html, content_type="text/html; charset=utf-8"))
+
+
+@require_GET
+def tv_widget_earthquake(request):
+    html = render_to_string(
+        "partials/tv_hud_earthquake_fragment.html",
+        {"earthquakes": bay_area_earthquakes()},
+        request=request,
+    )
+    return _no_store(HttpResponse(html, content_type="text/html; charset=utf-8"))
+
+
+@require_GET
+def tv_widget_wealth(request):
+    html = render_to_string(
+        "partials/tv_hud_wealth_fragment.html",
+        {"wealth": wealth_widget()},
+        request=request,
+    )
+    return _no_store(HttpResponse(html, content_type="text/html; charset=utf-8"))
+
+
+@require_GET
+def tv_widget_binance(request):
+    html = render_to_string(
+        "partials/tv_hud_binance_fragment.html",
+        {"binance": binance_us_portfolio()},
+        request=request,
+    )
+    return _no_store(HttpResponse(html, content_type="text/html; charset=utf-8"))
 
 
 @require_GET

@@ -12,6 +12,9 @@
   <meta name="aml-service-url" content="{{ SERVICE_BASE_URL }}">
   <meta name="aml-service-mode" content="{{ SERVICE_MODE }}">
   <link rel="stylesheet" href="{% static 'css/tv.css' %}?v={{ STATIC_BUILD_ID }}">
+  {% if slides %}
+  <link rel="preload" as="image" href="{{ slides.0.url }}">
+  {% endif %}
 </head>
 <body
   class="tv-body tv-body-gallery tv-kiosk theme-night"
@@ -19,15 +22,25 @@
   data-brightness="night"
   data-service-base="{{ SERVICE_BASE_URL }}"
   data-service-mode="{{ SERVICE_MODE }}"
-  data-refresh-seconds="{{ refresh_seconds|default:0 }}"
   data-health-poll-seconds="{{ TV_HEALTH_POLL_SECONDS }}"
+  data-weather-poll-seconds="{{ widget_poll.weather }}"
+  data-earthquake-poll-seconds="{{ widget_poll.earthquake }}"
+  data-wealth-poll-seconds="{{ widget_poll.wealth }}"
+  data-binance-poll-seconds="{{ widget_poll.binance }}"
+  data-display-poll-seconds="{{ widget_poll.display }}"
+  data-weather-widget-url="{% url 'core:tv_widget_weather' %}"
+  data-earthquake-widget-url="{% url 'core:tv_widget_earthquake' %}"
+  data-wealth-widget-url="{% url 'core:tv_widget_wealth' %}"
+  data-binance-widget-url="{% url 'core:tv_widget_binance' %}"
+  data-display-config-url="{% url 'core:tv_display_config' %}"
   data-slide-duration="{{ display_config.slide_duration_seconds }}"
   data-transition-seconds="{{ display_config.transition_seconds }}"
+  data-slide-count="{{ slides|length }}"
 >
   {% include "partials/tv_updating_overlay.html" %}
 
-  <div class="tv-gallery tv-content-hidden" id="tv-root" role="main" aria-label="Art gallery display">
-    <div class="tv-slideshow" aria-hidden="true">
+  <div class="tv-gallery" id="tv-root" role="main" aria-label="Art gallery display">
+    <div class="tv-slideshow">
       <div class="tv-slide tv-slide-a tv-slide-active">
         {% if slides %}
         <img class="tv-slide-img" src="{{ slides.0.url }}" alt="{{ slides.0.title }}">
@@ -46,21 +59,21 @@
 
       <div class="tv-hud-widgets">
         <div class="tv-hud-widget-stack">
-          <div class="tv-hud-weather">
+          <div class="tv-hud-weather" id="tv-widget-weather">
             {% for item in weather %}
             {% include "partials/tv_weather_card.html" with item=item %}
             {% endfor %}
           </div>
 
-          <div class="tv-hud-earthquake">
+          <div class="tv-hud-earthquake" id="tv-widget-earthquake">
             {% include "partials/tv_earthquake_card.html" %}
           </div>
 
-          <div class="tv-hud-wealth">
+          <div class="tv-hud-wealth" id="tv-widget-wealth">
             {% include "partials/tv_wealth_card.html" %}
           </div>
 
-          <div class="tv-hud-binance">
+          <div class="tv-hud-binance" id="tv-widget-binance">
             {% include "partials/tv_binance_card.html" %}
           </div>
         </div>
@@ -90,6 +103,7 @@
   <script src="{% static 'js/tv-theme.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-boot.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-slideshow.js' %}?v={{ STATIC_BUILD_ID }}"></script>
+  <script src="{% static 'js/tv-widgets.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-clock.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-hud-debug.js' %}?v={{ STATIC_BUILD_ID }}"></script>
 </body>

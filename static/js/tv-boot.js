@@ -13,6 +13,7 @@
   var overlayShownAt = 0;
   var networkFailureHint = false;
   var remoteVerificationRequired = false;
+  var displayConfigMonitoring = false;
 
   var LOCAL_HOSTS = {
     localhost: true,
@@ -76,6 +77,46 @@
     return meta && meta.getAttribute ? (meta.getAttribute("content") || "") : "";
   }
 
+  function readDisplayPollMs() {
+    var seconds = parseInt(readBodyData("data-display-poll-seconds"), 10);
+
+    if (!seconds || seconds < 1) {
+      return 60000;
+    }
+
+    return seconds * 1000;
+  }
+
+  function applyDisplayConfigPayload(data) {
+    var body = document.body;
+
+    if (!body || !body.setAttribute || !data) {
+      return;
+    }
+
+    if (data.slide_duration_seconds) {
+      body.setAttribute("data-slide-duration", String(data.slide_duration_seconds));
+    }
+
+    if (data.transition_seconds) {
+      body.setAttribute("data-transition-seconds", String(data.transition_seconds));
+    }
+
+    if (data.slide_count) {
+      body.setAttribute("data-slide-count", String(data.slide_count));
+    }
+
+    if (window.amlTvSlideshowApplyConfig) {
+      window.amlTvSlideshowApplyConfig();
+    }
+  }
+
+  function shouldReloadForDisplayConfig(data) {
+    var remoteBuild = data && data.static_build_id ? String(data.static_build_id) : "";
+    var localBuild = getCurrentBuildId();
+
+    return !!(remoteBuild && localBuild && remoteBuild !== localBuild);
+  }
   function extractBuildId(html) {
     var match = String(html || "").match(/name="aml-static-build"\s+content="([^"]+)"/);
 
@@ -240,16 +281,6 @@
     return value * 1000;
   }
 
-  function getRefreshInterval() {
-    var value = parseInt(readBodyData("data-refresh-seconds"), 10);
-
-    if (!value || value < 1) {
-      return 0;
-    }
-
-    return value * 1000;
-  }
-
   function createXhr() {
     if (window.XMLHttpRequest) {
       return new XMLHttpRequest();
@@ -371,30 +402,53 @@
     document.title = "Still waiting for dashboard";
   }
 
-  function setUpdatingVisible(visible) {
+  function isDashboardRevealed() {
+    return !!(
+      document.body &&
+      document.body.getAttribute &&
+      document.body.getAttribute("data-dashboard-ready") === "true"
+    );
+  }
+
+  function showWaitingOverlay() {
     if (!updatingEl) {
       return;
     }
 
-    if (visible) {
-      updatingEl.className = gatewayDetected
-        ? "tv-updating tv-updating-visible tv-updating-synology"
-        : "tv-updating tv-updating-visible";
-      updatingEl.setAttribute("aria-hidden", "false");
-      markOverlayShown();
+    updatingEl.className = gatewayDetected
+      ? "tv-updating tv-updating-visible tv-updating-synology"
+      : "tv-updating tv-updating-visible";
+    updatingEl.setAttribute("aria-hidden", "false");
+    updatingEl.setAttribute("aria-busy", "true");
+    markOverlayShown();
 
-      if (rootEl) {
-        rootEl.className = "tv-gallery tv-content-hidden";
-      }
-    } else {
-      updatingEl.className = "tv-updating";
-      updatingEl.setAttribute("aria-hidden", "true");
-      clearOverlayShown();
-
-      if (rootEl) {
-        rootEl.className = "tv-gallery";
-      }
+    if (rootEl) {
+      rootEl.className = "tv-gallery tv-content-hidden";
     }
+  }
+
+  function hideWaitingOverlay() {
+    if (!updatingEl) {
+      return;
+    }
+
+    updatingEl.className = "tv-updating";
+    updatingEl.setAttribute("aria-hidden", "true");
+    updatingEl.setAttribute("aria-busy", "false");
+    clearOverlayShown();
+
+    if (rootEl) {
+      rootEl.className = "tv-gallery";
+    }
+  }
+
+  function setUpdatingVisible(visible) {
+    if (visible) {
+      showWaitingOverlay();
+      return;
+    }
+
+    hideWaitingOverlay();
   }
 
   function setUpdatingStatus(message) {
@@ -679,8 +733,12 @@
       document.body.dispatchEvent(readyEvent);
     }
 
+    if (window.amlTvSlideshowStart) {
+      window.setTimeout(window.amlTvSlideshowStart, 0);
+    }
+
     startMonitor();
-    startSoftRefresh();
+    startDisplayConfigMonitor();
   }
 
   function activateDashboardIfReady() {
@@ -702,13 +760,16 @@
   }
 
   function attemptShowDashboard() {
-    setUpdatingVisible(true);
     recoverFromStuckOverlay();
 
     if (isDashboardDocument() && isDashboardReady() && !remoteVerificationRequired) {
       setUpdatingStatus("Dashboard page ready.");
       revealDashboard();
       return;
+    }
+
+    if (!isDashboardRevealed()) {
+      showWaitingOverlay();
     }
 
     if (isDashboardDocument()) {
@@ -727,6 +788,7 @@
           revealDashboard();
         },
         function () {
+          showWaitingOverlay();
           scheduleRetry(attemptShowDashboard);
         }
       );
@@ -741,6 +803,7 @@
         reloadDashboard();
       },
       function () {
+        showWaitingOverlay();
         setUpdatingStatus(serviceStatusLabel("Still waiting — verifying"));
         scheduleRetry(attemptShowDashboard);
       }
@@ -805,25 +868,44 @@
     }, monitorMs);
   }
 
-  function startSoftRefresh() {
-    var refreshMs = getRefreshInterval();
+  function startDisplayConfigMonitor() {
+    var config;
+    var pollMs;
+    var url;
 
-    if (!refreshMs || !isDashboardDocument()) {
+    if (displayConfigMonitoring || !isDashboardDocument()) {
       return;
     }
 
+    displayConfigMonitoring = true;
+    config = getServiceConfig();
+    pollMs = readDisplayPollMs();
+    url = readBodyData("data-display-config-url") || joinUrl(config.base, "/api/tv/display-config/");
+
     window.setInterval(function () {
-      fetchDashboardPage(
-        function (html) {
-          if (shouldReloadForHtml(html)) {
-            window.location.reload();
+      fetchUrl(
+        url,
+        function (body) {
+          var data;
+
+          try {
+            data = JSON.parse(body || "");
+          } catch (error) {
+            return;
           }
+
+          if (shouldReloadForDisplayConfig(data)) {
+            reloadDashboard();
+            return;
+          }
+
+          applyDisplayConfigPayload(data);
         },
         function () {
-          /* Keep showing the current dashboard if the poll fails. */
+          /* Keep current slideshow timing if config poll fails. */
         }
       );
-    }, refreshMs);
+    }, pollMs);
   }
 
   function boot() {
@@ -856,7 +938,22 @@
       injectWaitingShell();
     }
 
-    setUpdatingVisible(true);
+    if (isDashboardReady()) {
+      revealDashboard();
+      verifyServiceReady(
+        function () {
+          setUpdatingStatus("Dashboard page ready.");
+        },
+        function () {
+          showWaitingOverlay();
+          setUpdatingStatus(serviceStatusLabel("Still waiting for"));
+          scheduleRetry(attemptShowDashboard);
+        }
+      );
+      return;
+    }
+
+    showWaitingOverlay();
     setUpdatingStatus(serviceStatusLabel("Checking"));
     attemptShowDashboard();
   }
