@@ -643,6 +643,13 @@ html {
   filter: var(--brightness-filter);
 }
 
+/* Gallery HUD: lighter cards so slideshow art shows through (no blur on Tizen M56) */
+.tv-body-gallery.theme-night,
+.tv-body-gallery.theme-auto[data-brightness="night"] {
+  --card-bg: rgba(8, 12, 18, 0.50);
+  --card-border: rgba(255, 255, 255, 0.22);
+}
+
 /* Tizen M56: backdrop-filter clips content along the top inside rounded cards */
 .tv-body-gallery .tv-widget-card,
 .tv-body-gallery .tv-weather-card {

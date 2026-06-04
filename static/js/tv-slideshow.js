@@ -21,6 +21,8 @@
   var warming = false;
   var SLIDE_INDEX_KEY = "aml-tv-slide-index";
   var SLIDE_LIST_KEY = "aml-tv-slide-list-key";
+  var lastAppliedDurationMs = null;
+  var lastAppliedTransitionSec = null;
 
   function parseSlidesPayload(raw) {
     var data;
@@ -143,7 +145,20 @@
   }
 
   function applyTimingFromDom() {
-    applyTransitionSeconds(readNumberAttr("data-transition-seconds", 2));
+    var durationMs = readSlideDurationMs();
+    var transitionSec = readNumberAttr("data-transition-seconds", 2);
+    var timingChanged =
+      lastAppliedDurationMs !== durationMs || lastAppliedTransitionSec !== transitionSec;
+
+    applyTransitionSeconds(transitionSec);
+
+    /* Config poll (default 60s) must not reset the timer when timing is unchanged. */
+    if (!timingChanged) {
+      return;
+    }
+
+    lastAppliedDurationMs = durationMs;
+    lastAppliedTransitionSec = transitionSec;
 
     if (started && slides.length > 1) {
       scheduleNextSlide();
