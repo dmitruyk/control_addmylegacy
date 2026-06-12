@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import re
 import ssl
@@ -16,8 +18,13 @@ SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 ICLOUD_HASH_ALBUM_RE = re.compile(r"#([A-Za-z0-9]+)$")
 ICLOUD_SHAREDSTREAMS_HOST = "p23-sharedstreams.icloud.com"
-# ~2× the 280px widget width for sharp display without oversized downloads.
-WIDGET_DERIVATIVE_TARGET_WIDTH = 560
+ICLOUD_WIDGET_BASE_MAX_WIDTH = 280
+ICLOUD_WIDGET_BASE_MAX_HEIGHT = 210
+ICLOUD_WIDGET_SIZE_SCALE = 1.2
+ICLOUD_WIDGET_MAX_WIDTH = round(ICLOUD_WIDGET_BASE_MAX_WIDTH * ICLOUD_WIDGET_SIZE_SCALE)
+ICLOUD_WIDGET_MAX_HEIGHT = round(ICLOUD_WIDGET_BASE_MAX_HEIGHT * ICLOUD_WIDGET_SIZE_SCALE)
+# ~2× widget width for sharp display without oversized downloads.
+WIDGET_DERIVATIVE_TARGET_WIDTH = ICLOUD_WIDGET_MAX_WIDTH * 2
 
 
 @dataclass(frozen=True)
@@ -142,7 +149,7 @@ def _fetch_album_photos(album_id: str) -> list[IcloudPhoto]:
     items = assets.get("items") or {}
 
     results: list[IcloudPhoto] = []
-    for checksum, (caption, width, height) in zip(checksums, metadata, strict=False):
+    for checksum, (caption, width, height) in zip(checksums, metadata):
         item = items.get(checksum)
         if not item:
             continue
@@ -241,8 +248,8 @@ def icloud_photo_frame_size(
     width: int | None,
     height: int | None,
     *,
-    max_width: int = 280,
-    max_height: int = 210,
+    max_width: int = ICLOUD_WIDGET_MAX_WIDTH,
+    max_height: int = ICLOUD_WIDGET_MAX_HEIGHT,
 ) -> tuple[int, int]:
     """Match tv-icloud-widget.js computeFrameSize() for first-paint sizing."""
     if not width or not height or width < 1 or height < 1:

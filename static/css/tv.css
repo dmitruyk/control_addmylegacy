@@ -750,12 +750,11 @@ html {
 }
 
 .tv-hud-icloud {
-  --tv-hud-gap: 24px;
-  --tv-icloud-max-width: 280;
-  --tv-icloud-max-height: 210;
-  bottom: 24px;
-  bottom: var(--tv-hud-gap);
-  left: 48px;
+  --tv-icloud-inset: 48px;
+  --tv-icloud-max-width: 336;
+  --tv-icloud-max-height: 252;
+  bottom: var(--tv-icloud-inset);
+  left: var(--tv-icloud-inset);
   pointer-events: auto;
   position: absolute;
   z-index: 8;
@@ -769,6 +768,12 @@ html {
   -webkit-transition: width 0.45s ease;
   transition: width 0.45s ease;
   width: auto;
+}
+
+.tv-hud-icloud .tv-widget-card.tv-icloud-no-frame-transition,
+.tv-hud-icloud .tv-widget-card.tv-icloud-no-frame-transition .tv-icloud-slideshow {
+  -webkit-transition: none;
+  transition: none;
 }
 
 .tv-icloud-slideshow {
@@ -1643,12 +1648,11 @@ html {
   }
 
   .tv-hud-icloud {
-    --tv-hud-gap: 28px;
-    --tv-icloud-max-width: 300;
-    --tv-icloud-max-height: 225;
-    bottom: 28px;
-    bottom: var(--tv-hud-gap);
-    left: 56px;
+    --tv-icloud-inset: 56px;
+    --tv-icloud-max-width: 360;
+    --tv-icloud-max-height: 270;
+    bottom: var(--tv-icloud-inset);
+    left: var(--tv-icloud-inset);
   }
 
   .tv-hud-weekday {
@@ -1758,10 +1762,11 @@ html {
   }
 
   .tv-hud-icloud {
-    --tv-icloud-max-width: 220;
-    --tv-icloud-max-height: 165;
-    bottom: 24px;
-    left: 24px;
+    --tv-icloud-inset: 24px;
+    --tv-icloud-max-width: 264;
+    --tv-icloud-max-height: 198;
+    bottom: var(--tv-icloud-inset);
+    left: var(--tv-icloud-inset);
   }
 
   .tv-hud-widget-stack {

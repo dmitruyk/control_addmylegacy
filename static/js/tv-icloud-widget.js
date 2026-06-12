@@ -62,8 +62,8 @@
     var root = frameEl || widgetEl;
 
     return {
-      maxWidth: readCssVarPx(root, "--tv-icloud-max-width", 280),
-      maxHeight: readCssVarPx(root, "--tv-icloud-max-height", 210),
+      maxWidth: readCssVarPx(root, "--tv-icloud-max-width", 336),
+      maxHeight: readCssVarPx(root, "--tv-icloud-max-height", 252),
     };
   }
 
@@ -100,17 +100,123 @@
     };
   }
 
+  function readFrameResizeMs() {
+    return readTransitionSeconds() * 1000;
+  }
+
+  function setFrameTransitionEnabled(enabled) {
+    if (!widgetEl) {
+      return;
+    }
+
+    if (enabled) {
+      widgetEl.className = widgetEl.className.replace(/\btv-icloud-no-frame-transition\b/g, "").replace(/\s+/g, " ").replace(/^\s|\s$/g, "");
+      return;
+    }
+
+    if (widgetEl.className.indexOf("tv-icloud-no-frame-transition") === -1) {
+      widgetEl.className += " tv-icloud-no-frame-transition";
+    }
+  }
+
   function applyPhotoFrame(photo, img) {
     var size;
+    var widthPx;
+    var heightPx;
 
     if (!widgetEl || !slideshowEl) {
       return;
     }
 
     size = computeFrameSize(photo, img);
-    widgetEl.style.width = size.width + "px";
-    slideshowEl.style.width = size.width + "px";
-    slideshowEl.style.height = size.height + "px";
+    widthPx = size.width + "px";
+    heightPx = size.height + "px";
+
+    if (widgetEl.style.width === widthPx && slideshowEl.style.width === widthPx && slideshowEl.style.height === heightPx) {
+      return size;
+    }
+
+    widgetEl.style.width = widthPx;
+    slideshowEl.style.width = widthPx;
+    slideshowEl.style.height = heightPx;
+    return size;
+  }
+
+  function frameSizeFromElement() {
+    return {
+      width: parseInt(slideshowEl && slideshowEl.style.width, 10) || 0,
+      height: parseInt(slideshowEl && slideshowEl.style.height, 10) || 0,
+    };
+  }
+
+  function frameSizesMatch(a, b) {
+    return !!(a && b && a.width === b.width && a.height === b.height);
+  }
+
+  function animatePhotoFrame(photo, img, onComplete) {
+    var nextSize;
+    var currentSize;
+    var resizeMs;
+    var finished = false;
+
+    if (!widgetEl || !slideshowEl) {
+      if (onComplete) {
+        onComplete();
+      }
+      return;
+    }
+
+    nextSize = computeFrameSize(photo, img);
+    currentSize = frameSizeFromElement();
+
+    if (frameSizesMatch(currentSize, nextSize)) {
+      if (onComplete) {
+        onComplete();
+      }
+      return;
+    }
+
+    resizeMs = readFrameResizeMs();
+
+    function finish() {
+      if (finished) {
+        return;
+      }
+
+      finished = true;
+
+      if (slideshowEl.removeEventListener) {
+        slideshowEl.removeEventListener("transitionend", handleTransitionEnd);
+      } else if (slideshowEl.detachEvent) {
+        slideshowEl.detachEvent("ontransitionend", handleTransitionEnd);
+      }
+
+      if (onComplete) {
+        onComplete();
+      }
+    }
+
+    function handleTransitionEnd(event) {
+      if (!event) {
+        finish();
+        return;
+      }
+
+      if (event.target === slideshowEl && (event.propertyName === "width" || event.propertyName === "height")) {
+        finish();
+      }
+    }
+
+    setFrameTransitionEnabled(true);
+    applyPhotoFrame(photo, img);
+
+    if (slideshowEl.addEventListener) {
+      slideshowEl.addEventListener("transitionend", handleTransitionEnd);
+    } else if (slideshowEl.attachEvent) {
+      slideshowEl.attachEvent("ontransitionend", handleTransitionEnd);
+    }
+
+    window.setTimeout(finish, resizeMs + 80);
   }
 
   function applyDefaultFrame() {
@@ -262,7 +368,9 @@
     layerB = null;
     currentLayer = null;
     alternateLayer = null;
+    setFrameTransitionEnabled(false);
     applyDefaultFrame();
+    setFrameTransitionEnabled(true);
     stopSlideshow();
   }
 
@@ -319,6 +427,8 @@
 
   function applyTransitionSeconds(seconds) {
     var value = String(seconds || 1.5) + "s";
+    var frameTransition = "width " + value + " ease, height " + value + " ease";
+    var widthTransition = "width " + value + " ease";
 
     if (layerA && layerA.style) {
       layerA.style.webkitTransitionDuration = value;
@@ -328,6 +438,16 @@
     if (layerB && layerB.style) {
       layerB.style.webkitTransitionDuration = value;
       layerB.style.transitionDuration = value;
+    }
+
+    if (widgetEl && widgetEl.style) {
+      widgetEl.style.webkitTransition = widthTransition;
+      widgetEl.style.transition = widthTransition;
+    }
+
+    if (slideshowEl && slideshowEl.style) {
+      slideshowEl.style.webkitTransition = frameTransition;
+      slideshowEl.style.transition = frameTransition;
     }
   }
 
@@ -434,26 +554,50 @@
     loadToken += 1;
     token = loadToken;
 
-    function reveal() {
+    function reveal(resolvedImg) {
+      var refImg = resolvedImg || img;
+      var nextSize;
+      var currentSize;
+
       if (token !== loadToken) {
         transitioning = false;
         return;
       }
 
-      setDomImageSrc(img, photo.url);
-      applyPhotoFrame(photo, img);
-      activateIncoming(incoming, outgoing);
-      photoIndex = index;
-      transitioning = false;
+      nextSize = computeFrameSize(photo, refImg);
+      currentSize = frameSizeFromElement();
 
-      if (done) {
-        done();
+      function finishReveal() {
+        if (token !== loadToken) {
+          transitioning = false;
+          return;
+        }
+
+        setDomImageSrc(img, photo.url);
+        incoming.style.opacity = "";
+        activateIncoming(incoming, outgoing);
+        outgoing.style.opacity = "";
+        photoIndex = index;
+        transitioning = false;
+
+        if (done) {
+          done();
+        }
       }
+
+      if (!frameSizesMatch(currentSize, nextSize)) {
+        outgoing.style.opacity = "0";
+        incoming.style.opacity = "0";
+        setDomImageSrc(img, photo.url);
+        animatePhotoFrame(photo, refImg, finishReveal);
+        return;
+      }
+
+      finishReveal();
     }
 
     if (isCached(photo.url)) {
-      applyPhotoFrame(photo, img);
-      reveal();
+      reveal(isImageLoaded(img) ? img : null);
       return;
     }
 
@@ -461,10 +605,7 @@
       photo.url,
       token,
       function (loader) {
-        if (loader && loader.naturalWidth > 0) {
-          applyPhotoFrame(photo, loader);
-        }
-        reveal();
+        reveal(loader && loader.naturalWidth > 0 ? loader : null);
       },
       function () {
         transitioning = false;
@@ -554,11 +695,17 @@
     }
 
     firstImg = ensureSlideImage(currentLayer, firstPhoto);
-    applyPhotoFrame(firstPhoto, firstImg);
+    setFrameTransitionEnabled(false);
+    applyPhotoFrame(firstPhoto, null);
 
     function afterFirstReady() {
       imageCache[firstPhoto.url] = true;
-      applyPhotoFrame(firstPhoto, firstImg);
+      if (isImageLoaded(firstImg)) {
+        setFrameTransitionEnabled(false);
+        applyPhotoFrame(firstPhoto, firstImg);
+      }
+      setFrameTransitionEnabled(true);
+      applyTransitionSeconds(readTransitionSeconds());
       photoIndex = 0;
       beginSlideshow();
     }
@@ -668,12 +815,17 @@
     photos = readInitialPhotos();
 
     if (!photos.length) {
+      setFrameTransitionEnabled(false);
       applyDefaultFrame();
+      setFrameTransitionEnabled(true);
       startPolling();
       return;
     }
 
+    setFrameTransitionEnabled(false);
     applyPhotoFrame(photos[0], null);
+    setFrameTransitionEnabled(true);
+    applyTransitionSeconds(readTransitionSeconds());
     started = true;
     startWithFirstPhoto();
     startPolling();

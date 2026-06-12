@@ -34,15 +34,15 @@ class ExtractAlbumIdTests(SimpleTestCase):
 
 class IcloudPhotoFrameSizeTests(SimpleTestCase):
     def test_landscape_photo_uses_max_width(self):
-        self.assertEqual(icloud_photo_frame_size(1600, 1200), (280, 210))
+        self.assertEqual(icloud_photo_frame_size(1600, 1200), (336, 252))
 
     def test_portrait_photo_fits_max_height(self):
         width, height = icloud_photo_frame_size(1200, 1600)
-        self.assertEqual(height, 210)
-        self.assertLess(width, 280)
+        self.assertEqual(height, 252)
+        self.assertLess(width, 336)
 
     def test_missing_dimensions_use_default(self):
-        self.assertEqual(icloud_photo_frame_size(None, None), (280, 158))
+        self.assertEqual(icloud_photo_frame_size(None, None), (336, 189))
 
 
 class IcloudAlbumWidgetTests(TestCase):
