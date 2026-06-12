@@ -9,6 +9,7 @@ from core.icloud_album import (
     extract_album_id,
     icloud_album_widget,
     icloud_album_widget_payload,
+    icloud_photo_frame_size,
 )
 from core.models import IcloudAlbumConfig
 
@@ -29,6 +30,19 @@ class ExtractAlbumIdTests(SimpleTestCase):
     def test_empty(self):
         self.assertIsNone(extract_album_id(""))
         self.assertIsNone(extract_album_id("https://example.com/album"))
+
+
+class IcloudPhotoFrameSizeTests(SimpleTestCase):
+    def test_landscape_photo_uses_max_width(self):
+        self.assertEqual(icloud_photo_frame_size(1600, 1200), (280, 210))
+
+    def test_portrait_photo_fits_max_height(self):
+        width, height = icloud_photo_frame_size(1200, 1600)
+        self.assertEqual(height, 210)
+        self.assertLess(width, 280)
+
+    def test_missing_dimensions_use_default(self):
+        self.assertEqual(icloud_photo_frame_size(None, None), (280, 158))
 
 
 class IcloudAlbumWidgetTests(TestCase):

@@ -660,6 +660,33 @@ html {
   overflow: visible;
 }
 
+/* iCloud photo widget: clip photos to rounded corners from first paint (Tizen M56). */
+.tv-body-gallery .tv-hud-icloud .tv-widget-card.tv-icloud-card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: transparent;
+  border: 0;
+  border-radius: 20px;
+  box-shadow: none;
+  isolation: isolate;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.tv-body-gallery .tv-hud-icloud .tv-icloud-slideshow,
+.tv-body-gallery .tv-hud-icloud .tv-icloud-slide,
+.tv-body-gallery .tv-hud-icloud .tv-icloud-slide-img {
+  border-radius: 20px;
+}
+
+.tv-body-gallery .tv-hud-icloud .tv-icloud-slideshow {
+  overflow: hidden;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
 .tv-body-gallery.theme-night .tv-hud-datetime,
 .tv-body-gallery.theme-auto[data-brightness="night"] .tv-hud-datetime,
 .tv-body-gallery .tv-hud-datetime {
@@ -739,8 +766,8 @@ html {
   min-width: 0;
   overflow: hidden;
   padding: 0;
-  -webkit-transition: width 0.45s ease, height 0.45s ease;
-  transition: width 0.45s ease, height 0.45s ease;
+  -webkit-transition: width 0.45s ease;
+  transition: width 0.45s ease;
   width: auto;
 }
 
@@ -749,7 +776,6 @@ html {
   position: relative;
   -webkit-transition: width 0.45s ease, height 0.45s ease;
   transition: width 0.45s ease, height 0.45s ease;
-  width: 100%;
 }
 
 .tv-icloud-slide {

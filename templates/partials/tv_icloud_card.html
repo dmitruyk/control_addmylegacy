@@ -1,5 +1,16 @@
-<article class="tv-widget-card tv-icloud-card" id="tv-icloud-widget"{% if not icloud_album.is_enabled %} hidden{% endif %}>
-  <div class="tv-icloud-slideshow" id="tv-icloud-slideshow" aria-live="polite" aria-label="Photo slideshow">
+<article
+  class="tv-widget-card tv-icloud-card"
+  id="tv-icloud-widget"
+  style="width: {{ icloud_frame_width }}px;"
+  {% if not icloud_album.is_enabled %} hidden{% endif %}
+>
+  <div
+    class="tv-icloud-slideshow"
+    id="tv-icloud-slideshow"
+    style="width: {{ icloud_frame_width }}px; height: {{ icloud_frame_height }}px;"
+    aria-live="polite"
+    aria-label="Photo slideshow"
+  >
     {% if icloud_album.is_available and icloud_album.photos %}
     <div class="tv-icloud-slide tv-icloud-slide-a tv-icloud-slide-active">
       <img

@@ -237,6 +237,28 @@ def icloud_album_widget() -> IcloudAlbumWidget:
     )
 
 
+def icloud_photo_frame_size(
+    width: int | None,
+    height: int | None,
+    *,
+    max_width: int = 280,
+    max_height: int = 210,
+) -> tuple[int, int]:
+    """Match tv-icloud-widget.js computeFrameSize() for first-paint sizing."""
+    if not width or not height or width < 1 or height < 1:
+        return max_width, round(max_height * 0.75)
+
+    aspect = width / height
+    frame_width = max_width
+    frame_height = frame_width / aspect
+
+    if frame_height > max_height:
+        frame_height = max_height
+        frame_width = frame_height * aspect
+
+    return max(1, round(frame_width)), max(1, round(frame_height))
+
+
 def icloud_album_widget_payload() -> dict:
     widget = icloud_album_widget()
     return {

@@ -11,7 +11,11 @@ from django.views.decorators.http import require_GET
 from core.art_slides import slide_has_source, slide_url_for
 from core.binance_us import binance_us_portfolio
 from core.earthquakes import bay_area_earthquakes
-from core.icloud_album import icloud_album_widget, icloud_album_widget_payload
+from core.icloud_album import (
+    icloud_album_widget,
+    icloud_album_widget_payload,
+    icloud_photo_frame_size,
+)
 from core.models import ArtSlide, TvDisplayConfig
 from core.weather import bay_area_weather
 from core.wealth import wealth_widget
@@ -80,6 +84,11 @@ def _dashboard_context(request):
         )
 
     icloud = icloud_album_widget()
+    first_icloud_photo = icloud.photos[0] if icloud.photos else None
+    icloud_frame_width, icloud_frame_height = icloud_photo_frame_size(
+        first_icloud_photo.width if first_icloud_photo else None,
+        first_icloud_photo.height if first_icloud_photo else None,
+    )
     context = {
         "now": now,
         "theme_brightness": _theme_brightness(now),
@@ -90,6 +99,8 @@ def _dashboard_context(request):
         "weather": bay_area_weather(),
         "earthquakes": bay_area_earthquakes(),
         "icloud_album": icloud,
+        "icloud_frame_width": icloud_frame_width,
+        "icloud_frame_height": icloud_frame_height,
         "icloud_photos": [
             {
                 "url": photo.url,
