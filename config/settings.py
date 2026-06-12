@@ -56,6 +56,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "core.device_middleware.DeviceAccessMiddleware",
     "core.middleware.MaintenanceModeMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -125,6 +126,14 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
+MEDIA_URL = "/media/"
+MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(BASE_DIR / "media")))
+
+# Uploaded art slides are normalized to this size for the Samsung TV gallery.
+TV_ART_SLIDE_WIDTH = 1920
+TV_ART_SLIDE_HEIGHT = 1080
+TV_ART_SLIDE_JPEG_QUALITY = 85
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SITE_NAME = env("SITE_NAME", default="AddMyLegacy Control")
@@ -176,6 +185,10 @@ BINANCE_US_API_SECRET = env("BINANCE_US_API_SECRET", default="")
 BINANCE_US_API_BASE = env("BINANCE_US_API_BASE", default="https://api.binance.us")
 BINANCE_US_CACHE_SECONDS = env.int("BINANCE_US_CACHE_SECONDS", default=300)
 BINANCE_US_HISTORY_DAYS = env.int("BINANCE_US_HISTORY_DAYS", default=90)
+
+# iCloud shared album widget (Apple Shared Streams API, no API key).
+TV_ICLOUD_ALBUM_CACHE_SECONDS = env.int("TV_ICLOUD_ALBUM_CACHE_SECONDS", default=1800)
+TV_ICLOUD_ALBUM_POLL_SECONDS = env.int("TV_ICLOUD_ALBUM_POLL_SECONDS", default=1800)
 
 # Property Zestimate widget (Zillow; auto-fetch at most once per day).
 ZILLOW_CACHE_SECONDS = env.int("ZILLOW_CACHE_SECONDS", default=86400)

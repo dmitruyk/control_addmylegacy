@@ -4,3 +4,5 @@ certifi>=2024.2.2
 gunicorn>=21.2.0
 whitenoise>=6.6.0
 psycopg2-binary>=2.9.9
+Pillow>=10.4.0
+pillow-heif>=0.16.0

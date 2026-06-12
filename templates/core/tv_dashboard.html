@@ -27,15 +27,20 @@
   data-earthquake-poll-seconds="{{ widget_poll.earthquake }}"
   data-wealth-poll-seconds="{{ widget_poll.wealth }}"
   data-binance-poll-seconds="{{ widget_poll.binance }}"
+  data-icloud-poll-seconds="{{ widget_poll.icloud }}"
+  data-device-widgets-allowed="{% if device_widgets_allowed %}true{% else %}false{% endif %}"
   data-display-poll-seconds="{{ widget_poll.display }}"
   data-weather-widget-url="{% url 'core:tv_widget_weather' %}"
   data-earthquake-widget-url="{% url 'core:tv_widget_earthquake' %}"
   data-wealth-widget-url="{% url 'core:tv_widget_wealth' %}"
   data-binance-widget-url="{% url 'core:tv_widget_binance' %}"
+  data-icloud-widget-url="{% url 'core:tv_widget_icloud' %}"
   data-display-config-url="{% url 'core:tv_display_config' %}"
   data-slide-duration="{{ display_config.slide_duration_seconds }}"
   data-transition-seconds="{{ display_config.transition_seconds }}"
   data-slide-count="{{ slides|length }}"
+  data-icloud-slide-duration="{{ icloud_album.slide_duration_seconds }}"
+  data-icloud-transition-seconds="{{ icloud_album.transition_seconds }}"
 >
   {% include "partials/tv_updating_overlay.html" %}
 
@@ -57,6 +62,10 @@
         <p class="tv-hud-time" id="tv-hud-time">{{ now|date:"g:i" }}<span class="tv-hud-ampm" id="tv-hud-ampm">{{ now|date:"A" }}</span></p>
       </div>
 
+      <div class="tv-hud-icloud" id="tv-widget-icloud">
+        {% include "partials/tv_icloud_card.html" %}
+      </div>
+
       <div class="tv-hud-widgets">
         <div class="tv-hud-widget-stack">
           <div class="tv-hud-weather" id="tv-widget-weather">
@@ -69,12 +78,16 @@
             {% include "partials/tv_earthquake_card.html" %}
           </div>
 
-          <div class="tv-hud-wealth" id="tv-widget-wealth">
+          <div class="tv-hud-wealth" id="tv-widget-wealth"{% if not device_widgets_allowed %} hidden{% endif %}>
+            {% if device_widgets_allowed %}
             {% include "partials/tv_wealth_card.html" %}
+            {% endif %}
           </div>
 
-          <div class="tv-hud-binance" id="tv-widget-binance">
+          <div class="tv-hud-binance" id="tv-widget-binance"{% if not device_widgets_allowed %} hidden{% endif %}>
+            {% if device_widgets_allowed %}
             {% include "partials/tv_binance_card.html" %}
+            {% endif %}
           </div>
         </div>
       </div>
@@ -99,11 +112,13 @@
   </div>
 
   {{ slides|json_script:"tv-slides-data" }}
+  {{ icloud_photos|json_script:"tv-icloud-photos-data" }}
 
   <script src="{% static 'js/tv-theme.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-boot.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-slideshow.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-widgets.js' %}?v={{ STATIC_BUILD_ID }}"></script>
+  <script src="{% static 'js/tv-icloud-widget.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-clock.js' %}?v={{ STATIC_BUILD_ID }}"></script>
   <script src="{% static 'js/tv-hud-debug.js' %}?v={{ STATIC_BUILD_ID }}"></script>
 </body>

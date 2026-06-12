@@ -7,6 +7,7 @@ secrets/
 venv/
 db.sqlite3
 staticfiles/
+media/
 .DS_Store
 .idea/
 *.egg-info/

@@ -722,6 +722,85 @@ html {
   margin-left: 10px;
 }
 
+.tv-hud-icloud {
+  --tv-hud-gap: 24px;
+  --tv-icloud-max-width: 280;
+  --tv-icloud-max-height: 210;
+  bottom: 24px;
+  bottom: var(--tv-hud-gap);
+  left: 48px;
+  pointer-events: auto;
+  position: absolute;
+  z-index: 8;
+}
+
+.tv-hud-icloud .tv-widget-card {
+  margin-left: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  -webkit-transition: width 0.45s ease, height 0.45s ease;
+  transition: width 0.45s ease, height 0.45s ease;
+  width: auto;
+}
+
+.tv-icloud-slideshow {
+  overflow: hidden;
+  position: relative;
+  -webkit-transition: width 0.45s ease, height 0.45s ease;
+  transition: width 0.45s ease, height 0.45s ease;
+  width: 100%;
+}
+
+.tv-icloud-slide {
+  height: 100%;
+  left: 0;
+  opacity: 0;
+  position: absolute;
+  top: 0;
+  -webkit-transition: opacity 1.5s ease;
+  transition: opacity 1.5s ease;
+  width: 100%;
+}
+
+.tv-icloud-slide-active {
+  opacity: 1;
+}
+
+.tv-icloud-slide-img {
+  border: 0;
+  display: block;
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.tv-icloud-empty {
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  height: 100%;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.tv-icloud-empty-label {
+  color: rgba(255, 255, 255, 0.72);
+  color: var(--muted-color);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 0;
+  padding: 0 12px;
+}
+
 .tv-hud-widgets {
   --tv-hud-gap: 24px;
   bottom: 24px;
@@ -1537,6 +1616,15 @@ html {
     right: 56px;
   }
 
+  .tv-hud-icloud {
+    --tv-hud-gap: 28px;
+    --tv-icloud-max-width: 300;
+    --tv-icloud-max-height: 225;
+    bottom: 28px;
+    bottom: var(--tv-hud-gap);
+    left: 56px;
+  }
+
   .tv-hud-weekday {
     font-size: 26px;
   }
@@ -1641,6 +1729,13 @@ html {
     bottom: 24px;
     left: 24px;
     right: 24px;
+  }
+
+  .tv-hud-icloud {
+    --tv-icloud-max-width: 220;
+    --tv-icloud-max-height: 165;
+    bottom: 24px;
+    left: 24px;
   }
 
   .tv-hud-widget-stack {

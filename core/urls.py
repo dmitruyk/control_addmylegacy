@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/tv/widgets/earthquakes/", views.tv_widget_earthquake, name="tv_widget_earthquake"),
     path("api/tv/widgets/wealth/", views.tv_widget_wealth, name="tv_widget_wealth"),
     path("api/tv/widgets/binance/", views.tv_widget_binance, name="tv_widget_binance"),
+    path("api/tv/widgets/icloud/", views.tv_widget_icloud, name="tv_widget_icloud"),
     path("missing", views.missing_page, name="missing"),
     path("missing/", views.missing_page, name="missing_slash"),
     path("wait/", views.wait_page, name="wait"),

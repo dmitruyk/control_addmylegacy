@@ -720,6 +720,13 @@
   }
 
   function revealDashboard() {
+    var recoveredFromWait = isOverlayVisible();
+
+    if (recoveredFromWait) {
+      reloadDashboard();
+      return;
+    }
+
     clearRetryTimer();
     setUpdatingVisible(false);
 

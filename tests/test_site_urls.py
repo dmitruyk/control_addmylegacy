@@ -18,6 +18,16 @@ from core.zillow import ZillowQuote, property_zestimate
 from core.weather import CityWeather, HourlyWeather, bay_area_weather
 
 
+def _allow_test_client_device(client):
+    from core.models import AllowedDevice
+
+    client.get(reverse("core:tv_dashboard"))
+    device = AllowedDevice.objects.order_by("-last_seen_at").first()
+    device.is_allowed = True
+    device.save(update_fields=["is_allowed"])
+    return device
+
+
 def _sample_weather():
     hourly = (
         HourlyWeather("2pm", 19, "clear", "☀", "Clear"),
@@ -482,6 +492,7 @@ class SiteUrlTests(TestCase):
         mock_binance.return_value = _sample_binance()
         mock_wealth.return_value = _sample_wealth()
 
+        _allow_test_client_device(self.client)
         response = self.client.get(reverse("core:tv_dashboard"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Cache-Control"], "no-store, no-cache, must-revalidate")
@@ -543,6 +554,7 @@ class SiteUrlTests(TestCase):
         mock_binance.return_value = _sample_binance()
         mock_wealth.return_value = _sample_wealth()
 
+        _allow_test_client_device(self.client)
         response = self.client.get(reverse("core:tv_dashboard"))
 
         self.assertContains(response, "tv-widgets.js")
@@ -573,6 +585,7 @@ class SiteUrlTests(TestCase):
     def test_tv_widget_wealth_fragment(self, mock_wealth):
         mock_wealth.return_value = _sample_wealth()
 
+        _allow_test_client_device(self.client)
         response = self.client.get(reverse("core:tv_widget_wealth"))
 
         self.assertEqual(response.status_code, 200)
@@ -582,6 +595,7 @@ class SiteUrlTests(TestCase):
     def test_tv_widget_binance_fragment(self, mock_binance):
         mock_binance.return_value = _sample_binance()
 
+        _allow_test_client_device(self.client)
         response = self.client.get(reverse("core:tv_widget_binance"))
 
         self.assertEqual(response.status_code, 200)
@@ -595,6 +609,10 @@ class SiteUrlTests(TestCase):
         self.assertIn("static_build_id", payload)
         self.assertIn("slide_duration_seconds", payload)
         self.assertIn("transition_seconds", payload)
+        self.assertIn("device_widgets_allowed", payload)
+        self.assertIn("wealth_poll_seconds", payload)
+        self.assertIn("binance_poll_seconds", payload)
+        self.assertFalse(payload["device_widgets_allowed"])
 
     @patch("core.views.wealth_widget")
     @patch("core.views.binance_us_portfolio")

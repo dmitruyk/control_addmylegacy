@@ -21,6 +21,8 @@
   var warming = false;
   var SLIDE_INDEX_KEY = "aml-tv-slide-index";
   var SLIDE_LIST_KEY = "aml-tv-slide-list-key";
+  var BUILD_ID_KEY = "aml-tv-slide-build-id";
+  var forceRandomStart = false;
   var lastAppliedDurationMs = null;
   var lastAppliedTransitionSec = null;
 
@@ -114,6 +116,28 @@
     return String(count) + ":" + String(duration);
   }
 
+  function readCurrentBuildId() {
+    var meta = document.querySelector('meta[name="aml-static-build"]');
+
+    return meta && meta.getAttribute ? (meta.getAttribute("content") || "") : "";
+  }
+
+  function readSavedBuildId() {
+    try {
+      return localStorage.getItem(BUILD_ID_KEY) || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function randomSlideIndex() {
+    if (!slides.length) {
+      return 0;
+    }
+
+    return Math.floor(Math.random() * slides.length);
+  }
+
   function readSavedSlideIndex() {
     var savedList;
     var savedIndex;
@@ -135,10 +159,31 @@
     }
   }
 
+  function resolveStartSlideIndex() {
+    var currentBuild = readCurrentBuildId();
+    var savedBuild = readSavedBuildId();
+
+    if (forceRandomStart) {
+      forceRandomStart = false;
+      return randomSlideIndex();
+    }
+
+    if (!currentBuild || !savedBuild || currentBuild !== savedBuild) {
+      return randomSlideIndex();
+    }
+
+    return readSavedSlideIndex();
+  }
+
   function saveSlideIndex(index) {
+    var buildId = readCurrentBuildId();
+
     try {
       localStorage.setItem(SLIDE_LIST_KEY, slidesListKey());
       localStorage.setItem(SLIDE_INDEX_KEY, String(index));
+      if (buildId) {
+        localStorage.setItem(BUILD_ID_KEY, buildId);
+      }
     } catch (error) {
       /* ignore — private mode / Tizen storage limits */
     }
@@ -534,29 +579,45 @@
     );
   }
 
-  function startAtSavedSlide() {
-    var savedIndex = readSavedSlideIndex();
-
-    if (savedIndex < 0 || savedIndex >= slides.length) {
-      savedIndex = 0;
+  function stopSlideshow() {
+    if (slideTimer) {
+      window.clearTimeout(slideTimer);
+      slideTimer = null;
     }
 
-    slideIndex = savedIndex;
+    transitioning = false;
+    started = false;
+  }
 
-    if (savedIndex === 0) {
+  function startAtResolvedSlide(startIndex) {
+    if (startIndex === undefined || startIndex === null) {
+      startIndex = resolveStartSlideIndex();
+    }
+
+    if (startIndex < 0 || startIndex >= slides.length) {
+      startIndex = 0;
+    }
+
+    slideIndex = startIndex;
+
+    if (startIndex === 0) {
       startWithFirstSlide();
       return;
     }
 
     syncLayersFromDom();
-    swapSlide(savedIndex, function () {
+    swapSlide(startIndex, function () {
       beginSlideshow();
     });
   }
 
   function start() {
-    if (started && slideTimer) {
+    if (started && slideTimer && !forceRandomStart) {
       return;
+    }
+
+    if (started && forceRandomStart) {
+      stopSlideshow();
     }
 
     started = true;
@@ -572,13 +633,15 @@
       return;
     }
 
+    var startIndex = resolveStartSlideIndex();
+
     if (captionEl && slides.length) {
       captionEl.setAttribute("data-slide-total", String(slides.length));
-      captionEl.setAttribute("data-slide-index", String(readSavedSlideIndex()));
+      captionEl.setAttribute("data-slide-index", String(startIndex));
     }
 
     syncLayersFromDom();
-    startAtSavedSlide();
+    startAtResolvedSlide(startIndex);
   }
 
   function galleryVisibleInDom() {
@@ -606,8 +669,13 @@
     }
   }
 
+  function prepareRandomStart() {
+    forceRandomStart = true;
+  }
+
   window.amlTvSlideshowStart = start;
   window.amlTvSlideshowApplyConfig = applyTimingFromDom;
+  window.amlTvSlideshowPrepareRandomStart = prepareRandomStart;
 
   if (document.readyState === "loading") {
     if (document.addEventListener) {

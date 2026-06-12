@@ -1,0 +1,24 @@
+<article class="tv-widget-card tv-icloud-card" id="tv-icloud-widget"{% if not icloud_album.is_enabled %} hidden{% endif %}>
+  <div class="tv-icloud-slideshow" id="tv-icloud-slideshow" aria-live="polite" aria-label="Photo slideshow">
+    {% if icloud_album.is_available and icloud_album.photos %}
+    <div class="tv-icloud-slide tv-icloud-slide-a tv-icloud-slide-active">
+      <img
+        class="tv-icloud-slide-img"
+        src="{{ icloud_album.photos.0.url }}"
+        alt="{{ icloud_album.photos.0.caption|default:'Photo' }}"
+      >
+    </div>
+    <div class="tv-icloud-slide tv-icloud-slide-b"></div>
+    {% else %}
+    <div class="tv-icloud-empty">
+      <p class="tv-icloud-empty-label">
+        {% if icloud_album.error_label %}
+          {{ icloud_album.error_label }}
+        {% else %}
+          No photos to show
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+  </div>
+</article>
