@@ -3,7 +3,7 @@ from datetime import date
 
 from django.utils import timezone
 
-from core.models import PropertyWatchConfig, Retirement401kSnapshot
+from core.models import PropertyWatchConfig, Retirement401kConfig, Retirement401kSnapshot
 from core.zillow import property_zestimate
 
 
@@ -22,6 +22,11 @@ class WealthWidget:
     retirement_chart_points: str
     retirement_chart_area_points: str
     retirement_chart_date_labels: tuple[str, ...]
+    retirement_target_amount: float | None
+    retirement_target_display: str
+    retirement_target_delta: float | None
+    retirement_target_delta_display: str
+    retirement_chart_target_y: float | None
     property_is_available: bool
     property_address: str
     property_price: float | None
@@ -67,19 +72,37 @@ def _format_change_pct(value: float | None) -> str:
     return f"{sign}{value:.2f}%"
 
 
-def _build_chart_points(values: list[float], width: int = 100, height: int = 40) -> tuple[str, str]:
+def _chart_scale(values: list[float], extra_values: list[float] | None = None) -> tuple[float, float]:
+    scale_values = list(values)
+    if extra_values:
+        scale_values.extend(extra_values)
+
+    min_value = min(scale_values)
+    max_value = max(scale_values)
+    span = max_value - min_value or 1.0
+    return min_value, span
+
+
+def _value_to_chart_y(value: float, min_value: float, span: float, height: int = 40) -> float:
+    return height - ((value - min_value) / span) * (height - 4) - 2
+
+
+def _build_chart_points(
+    values: list[float],
+    width: int = 100,
+    height: int = 40,
+    extra_scale_values: list[float] | None = None,
+) -> tuple[str, str]:
     if len(values) < 2:
         return "", ""
 
-    min_value = min(values)
-    max_value = max(values)
-    span = max_value - min_value or 1.0
+    min_value, span = _chart_scale(values, extra_scale_values)
     line_points: list[str] = []
     last_index = len(values) - 1
 
     for index, value in enumerate(values):
         x = (index / last_index) * width
-        y = height - ((value - min_value) / span) * (height - 4) - 2
+        y = _value_to_chart_y(value, min_value, span, height)
         line_points.append(f"{x:.1f},{y:.1f}")
 
     first_point = line_points[0]
@@ -89,6 +112,33 @@ def _build_chart_points(values: list[float], width: int = 100, height: int = 40)
         + f" {width:.1f},{height:.1f}"
     )
     return " ".join(line_points), area_points
+
+
+def _chart_target_y(
+    target_amount: float,
+    values: list[float],
+    height: int = 40,
+) -> float | None:
+    if len(values) < 2:
+        return None
+
+    min_value, span = _chart_scale(values, [target_amount])
+    return _value_to_chart_y(target_amount, min_value, span, height)
+
+
+def _format_target_delta(target_amount: float, current_balance: float) -> tuple[float, str]:
+    delta = target_amount - current_balance
+    remaining = abs(delta)
+    if remaining >= 1000:
+        amount_display = f"${remaining:,.0f}"
+    else:
+        amount_display = f"${remaining:,.2f}"
+
+    if delta > 0:
+        return delta, f"{amount_display} to goal"
+    if delta < 0:
+        return delta, f"{amount_display} over goal"
+    return delta, "At goal"
 
 
 def _chart_date_labels(dates: list, label_count: int = 5) -> tuple[str, ...]:
@@ -123,6 +173,17 @@ def _period_label(snapshot_count: int) -> str:
 
 
 def _load_retirement_section() -> dict:
+    config = Retirement401kConfig.load()
+    target_amount = float(config.target_amount) if config.target_amount else None
+
+    empty_target = {
+        "retirement_target_amount": None,
+        "retirement_target_display": "—",
+        "retirement_target_delta": None,
+        "retirement_target_delta_display": "—",
+        "retirement_chart_target_y": None,
+    }
+
     snapshots = list(Retirement401kSnapshot.objects.all())
     if not snapshots:
         return {
@@ -139,6 +200,7 @@ def _load_retirement_section() -> dict:
             "retirement_chart_points": "",
             "retirement_chart_area_points": "",
             "retirement_chart_date_labels": (),
+            **empty_target,
         }
 
     values = [float(row.balance) for row in snapshots]
@@ -156,10 +218,22 @@ def _load_retirement_section() -> dict:
         gross_change = values[-1] - values[0]
         change_usd = gross_change - total_contributions
         invested_start = values[0] + total_contributions
-        if values[0] > 0:
-            change_pct = (change_usd / values[0]) * 100.0
+        if invested_start > 0:
+            change_pct = (change_usd / invested_start) * 100.0
 
-    chart_points, chart_area_points = _build_chart_points(values)
+    extra_scale_values = [target_amount] if target_amount is not None else None
+    chart_points, chart_area_points = _build_chart_points(values, extra_scale_values=extra_scale_values)
+
+    target_fields = dict(empty_target)
+    if target_amount is not None:
+        delta, delta_display = _format_target_delta(target_amount, values[-1])
+        target_fields = {
+            "retirement_target_amount": target_amount,
+            "retirement_target_display": _format_usd(target_amount),
+            "retirement_target_delta": delta,
+            "retirement_target_delta_display": delta_display,
+            "retirement_chart_target_y": _chart_target_y(target_amount, values),
+        }
 
     return {
         "retirement_is_available": True,
@@ -175,6 +249,7 @@ def _load_retirement_section() -> dict:
         "retirement_chart_points": chart_points,
         "retirement_chart_area_points": chart_area_points,
         "retirement_chart_date_labels": _chart_date_labels(dates),
+        **target_fields,
     }
 
 

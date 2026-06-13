@@ -10,6 +10,7 @@ from .models import (
     DeviceAccessLog,
     IcloudAlbumConfig,
     PropertyWatchConfig,
+    Retirement401kConfig,
     Retirement401kSnapshot,
     TvDisplayConfig,
 )
@@ -84,6 +85,26 @@ class IcloudAlbumConfigAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
         invalidate_icloud_album_cache(previous_album_id)
         invalidate_icloud_album_cache(extract_album_id(obj.shared_album_url))
+
+
+@admin.register(Retirement401kConfig)
+class Retirement401kConfigAdmin(admin.ModelAdmin):
+    list_display = ("target_amount", "updated_at")
+    fieldsets = (
+        (
+            "Goal",
+            {
+                "fields": ("target_amount",),
+                "description": "Optional savings target shown as a yellow marker on the 401(k) chart.",
+            },
+        ),
+    )
+
+    def has_add_permission(self, request):
+        return not Retirement401kConfig.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Retirement401kSnapshot)

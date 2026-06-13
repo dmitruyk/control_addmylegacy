@@ -1451,6 +1451,18 @@ html {
 }
 
 .tv-wealth-period-active {
+  color: #EDECE6;
+}
+
+.tv-wealth-period-target {
+  color: #fbbf24;
+}
+
+.tv-wealth-period-target-delta {
+  color: #fbbf24;
+}
+
+.tv-wealth-period-target-met {
   color: #10b981;
 }
 
@@ -1466,10 +1478,47 @@ html {
 
 .tv-wealth-chart-line {
   fill: none;
-  stroke: #10b981;
+  stroke: #EDECE6;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
+}
+
+.tv-wealth-chart-target-line {
+  stroke: #fbbf24;
+  stroke-dasharray: 3 2;
+  stroke-opacity: 0.72;
+  stroke-width: 1;
+}
+
+.tv-wealth-chart-target-dot {
+  fill: #fbbf24;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 0.8;
+  -webkit-animation: tv-wealth-target-pulse 2.4s ease-in-out infinite;
+  animation: tv-wealth-target-pulse 2.4s ease-in-out infinite;
+}
+
+@-webkit-keyframes tv-wealth-target-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes tv-wealth-target-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .tv-wealth-chart-dates {

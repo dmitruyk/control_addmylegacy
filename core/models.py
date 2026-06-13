@@ -192,6 +192,35 @@ class Retirement401kSnapshot(models.Model):
         return f"{self.snapshot_date}: ${self.balance:,.2f}"
 
 
+class Retirement401kConfig(models.Model):
+    """Singleton 401(k) goal settings for the TV wealth widget (pk=1)."""
+
+    target_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Optional savings goal shown on the 401(k) chart.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "401(k) configuration"
+        verbose_name_plural = "401(k) configuration"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class PropertyWatchConfig(models.Model):
     """Singleton Zillow property watch for the TV wealth widget (pk=1)."""
 

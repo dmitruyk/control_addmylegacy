@@ -367,7 +367,7 @@ class WealthServiceTests(TestCase):
         self.assertTrue(result.retirement_is_available)
         self.assertEqual(result.retirement_balance, 110000.0)
         self.assertEqual(result.retirement_change_usd, 4000.0)
-        self.assertAlmostEqual(result.retirement_change_pct, 4.0)
+        self.assertAlmostEqual(result.retirement_change_pct, 3.773584905660377)
         self.assertTrue(result.property_is_available)
         self.assertEqual(result.property_change_usd, 85000.0)
         self.assertAlmostEqual(result.property_change_pct, 13.385826771653543)
@@ -375,6 +375,69 @@ class WealthServiceTests(TestCase):
         self.assertEqual(result.property_equity_display, "$181,877")
         self.assertAlmostEqual(result.property_equity_purchase_pct, 28.64204724409449)
         self.assertAlmostEqual(result.property_equity_estimate_pct, 25.260694444444447)
+
+    def test_wealth_widget_retirement_target_goal(self):
+        from core.models import PropertyWatchConfig, Retirement401kConfig, Retirement401kSnapshot
+
+        Retirement401kSnapshot.objects.create(
+            snapshot_date=datetime(2026, 1, 1).date(),
+            balance="100000.00",
+        )
+        Retirement401kSnapshot.objects.create(
+            snapshot_date=datetime(2026, 5, 1).date(),
+            balance="110000.00",
+        )
+
+        config = Retirement401kConfig.load()
+        config.target_amount = "150000.00"
+        config.save()
+
+        PropertyWatchConfig.load()
+
+        with patch("core.wealth.property_zestimate") as mock_quote:
+            mock_quote.return_value = ZillowQuote(
+                zestimate=720000.0,
+                source_label="Manual estimate",
+                updated_label="Updated May 30, 2026",
+                is_available=True,
+                error_label="",
+            )
+            result = wealth_widget()
+
+        self.assertEqual(result.retirement_target_amount, 150000.0)
+        self.assertEqual(result.retirement_target_display, "$150,000")
+        self.assertEqual(result.retirement_target_delta, 40000.0)
+        self.assertEqual(result.retirement_target_delta_display, "$40,000 to goal")
+        self.assertIsNotNone(result.retirement_chart_target_y)
+        self.assertGreater(result.retirement_chart_target_y, 0.0)
+        self.assertLess(result.retirement_chart_target_y, result.chart_height)
+
+    def test_wealth_widget_retirement_pct_from_contributions_when_start_balance_zero(self):
+        from core.models import Retirement401kSnapshot
+
+        Retirement401kSnapshot.objects.create(
+            snapshot_date=datetime(2026, 1, 1).date(),
+            balance="0.00",
+        )
+        Retirement401kSnapshot.objects.create(
+            snapshot_date=datetime(2026, 5, 1).date(),
+            balance="12000.00",
+            employee_contribution="10000.00",
+            employer_match="1000.00",
+        )
+
+        with patch("core.wealth.property_zestimate") as mock_quote:
+            mock_quote.return_value = ZillowQuote(
+                zestimate=None,
+                source_label="Zestimate",
+                updated_label="Not updated yet",
+                is_available=False,
+                error_label="Add manual Zestimate",
+            )
+            result = wealth_widget()
+
+        self.assertEqual(result.retirement_change_usd, 1000.0)
+        self.assertAlmostEqual(result.retirement_change_pct, 9.090909090909092)
 
     def test_wealth_widget_empty_retirement(self):
         with patch("core.wealth.property_zestimate") as mock_quote:
