@@ -23,6 +23,9 @@ ICLOUD_WIDGET_BASE_MAX_HEIGHT = 210
 ICLOUD_WIDGET_SIZE_SCALE = 1.2
 ICLOUD_WIDGET_MAX_WIDTH = round(ICLOUD_WIDGET_BASE_MAX_WIDTH * ICLOUD_WIDGET_SIZE_SCALE)
 ICLOUD_WIDGET_MAX_HEIGHT = round(ICLOUD_WIDGET_BASE_MAX_HEIGHT * ICLOUD_WIDGET_SIZE_SCALE)
+ICLOUD_SIZE_SCALE_MIN = 0
+ICLOUD_SIZE_SCALE_MAX = 300
+ICLOUD_SIZE_SCALE_DEFAULT = 100
 # ~2× widget width for sharp display without oversized downloads.
 WIDGET_DERIVATIVE_TARGET_WIDTH = ICLOUD_WIDGET_MAX_WIDTH * 2
 
@@ -43,7 +46,31 @@ class IcloudAlbumWidget:
     photos: tuple[IcloudPhoto, ...]
     slide_duration_seconds: int
     transition_seconds: float
+    size_scale_percent: int
     error_label: str
+
+
+def normalize_size_scale_percent(value) -> int:
+    try:
+        scale = int(value)
+    except (TypeError, ValueError):
+        return ICLOUD_SIZE_SCALE_DEFAULT
+    return max(ICLOUD_SIZE_SCALE_MIN, min(ICLOUD_SIZE_SCALE_MAX, scale))
+
+
+def icloud_scaled_max_bounds(
+    scale_percent: int = ICLOUD_SIZE_SCALE_DEFAULT,
+    *,
+    base_max_width: int = ICLOUD_WIDGET_MAX_WIDTH,
+    base_max_height: int = ICLOUD_WIDGET_MAX_HEIGHT,
+) -> tuple[int, int]:
+    scale = normalize_size_scale_percent(scale_percent) / 100
+    if scale <= 0:
+        return 0, 0
+    return (
+        max(1, round(base_max_width * scale)),
+        max(1, round(base_max_height * scale)),
+    )
 
 
 def extract_album_id(shared_url: str) -> str | None:
@@ -90,6 +117,16 @@ def _post_json(url: str, payload: dict) -> dict:
         return _post_json(redirected, payload)
 
 
+def _positive_int(value) -> int | None:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    if number < 1:
+        return None
+    return number
+
+
 def _pick_derivative(derivatives: dict) -> dict | None:
     candidates = []
     for derivative in derivatives.values():
@@ -134,11 +171,16 @@ def _fetch_album_photos(album_id: str) -> list[IcloudPhoto]:
         if not checksum:
             continue
         checksums.append(checksum)
+        photo_width = _positive_int(photo.get("width"))
+        photo_height = _positive_int(photo.get("height"))
+        if not photo_width or not photo_height:
+            photo_width = _positive_int(derivative.get("width"))
+            photo_height = _positive_int(derivative.get("height"))
         metadata.append(
             (
                 (photo.get("caption") or "").strip(),
-                int(derivative["width"]) if derivative.get("width") else None,
-                int(derivative["height"]) if derivative.get("height") else None,
+                photo_width,
+                photo_height,
             )
         )
 
@@ -170,7 +212,7 @@ def _fetch_album_photos(album_id: str) -> list[IcloudPhoto]:
 
 
 def icloud_album_photos(album_id: str) -> list[IcloudPhoto]:
-    cache_key = f"tv_icloud_album_{album_id}_v2"
+    cache_key = f"tv_icloud_album_{album_id}_v3"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -187,17 +229,18 @@ def icloud_album_photos(album_id: str) -> list[IcloudPhoto]:
 
 def invalidate_icloud_album_cache(album_id: str | None = None) -> None:
     if album_id:
-        cache.delete(f"tv_icloud_album_{album_id}_v2")
+        cache.delete(f"tv_icloud_album_{album_id}_v3")
         return
 
     config = IcloudAlbumConfig.load()
     album_id = extract_album_id(config.shared_album_url)
     if album_id:
-        cache.delete(f"tv_icloud_album_{album_id}_v2")
+        cache.delete(f"tv_icloud_album_{album_id}_v3")
 
 
 def icloud_album_widget() -> IcloudAlbumWidget:
     config = IcloudAlbumConfig.load()
+    size_scale_percent = normalize_size_scale_percent(config.size_scale_percent)
     if not config.is_enabled:
         return IcloudAlbumWidget(
             is_enabled=False,
@@ -206,6 +249,19 @@ def icloud_album_widget() -> IcloudAlbumWidget:
             photos=(),
             slide_duration_seconds=config.slide_duration_seconds,
             transition_seconds=float(config.transition_seconds),
+            size_scale_percent=size_scale_percent,
+            error_label="",
+        )
+
+    if size_scale_percent < 1:
+        return IcloudAlbumWidget(
+            is_enabled=True,
+            is_available=False,
+            title=config.title,
+            photos=(),
+            slide_duration_seconds=config.slide_duration_seconds,
+            transition_seconds=float(config.transition_seconds),
+            size_scale_percent=size_scale_percent,
             error_label="",
         )
 
@@ -218,6 +274,7 @@ def icloud_album_widget() -> IcloudAlbumWidget:
             photos=(),
             slide_duration_seconds=config.slide_duration_seconds,
             transition_seconds=float(config.transition_seconds),
+            size_scale_percent=size_scale_percent,
             error_label="Invalid iCloud shared album URL",
         )
 
@@ -230,6 +287,7 @@ def icloud_album_widget() -> IcloudAlbumWidget:
             photos=(),
             slide_duration_seconds=config.slide_duration_seconds,
             transition_seconds=float(config.transition_seconds),
+            size_scale_percent=size_scale_percent,
             error_label="No photos available from iCloud album",
         )
 
@@ -240,6 +298,7 @@ def icloud_album_widget() -> IcloudAlbumWidget:
         photos=tuple(photos),
         slide_duration_seconds=config.slide_duration_seconds,
         transition_seconds=float(config.transition_seconds),
+        size_scale_percent=size_scale_percent,
         error_label="",
     )
 
@@ -248,10 +307,15 @@ def icloud_photo_frame_size(
     width: int | None,
     height: int | None,
     *,
-    max_width: int = ICLOUD_WIDGET_MAX_WIDTH,
-    max_height: int = ICLOUD_WIDGET_MAX_HEIGHT,
+    scale_percent: int = ICLOUD_SIZE_SCALE_DEFAULT,
+    max_width: int | None = None,
+    max_height: int | None = None,
 ) -> tuple[int, int]:
     """Match tv-icloud-widget.js computeFrameSize() for first-paint sizing."""
+    if max_width is None or max_height is None:
+        max_width, max_height = icloud_scaled_max_bounds(scale_percent)
+    if max_width <= 0 or max_height <= 0:
+        return 0, 0
     if not width or not height or width < 1 or height < 1:
         return max_width, round(max_height * 0.75)
 
@@ -274,6 +338,7 @@ def icloud_album_widget_payload() -> dict:
         "title": widget.title,
         "slide_duration_seconds": widget.slide_duration_seconds,
         "transition_seconds": widget.transition_seconds,
+        "size_scale_percent": widget.size_scale_percent,
         "error_label": widget.error_label,
         "photos": [
             {

@@ -753,11 +753,16 @@ html {
   --tv-icloud-inset: 48px;
   --tv-icloud-max-width: 336;
   --tv-icloud-max-height: 252;
+  /* Tizen M56: literal px before var() — var-only bottom/left pins to top-left */
+  bottom: 48px;
   bottom: var(--tv-icloud-inset);
+  left: 48px;
   left: var(--tv-icloud-inset);
   pointer-events: auto;
   position: absolute;
-  z-index: 8;
+  right: auto;
+  top: auto;
+  z-index: 9;
 }
 
 .tv-hud-icloud .tv-widget-card {
@@ -765,6 +770,8 @@ html {
   min-width: 0;
   overflow: hidden;
   padding: 0;
+  -webkit-transform-origin: bottom left;
+  transform-origin: bottom left;
   -webkit-transition: width 0.45s ease;
   transition: width 0.45s ease;
   width: auto;
@@ -779,6 +786,8 @@ html {
 .tv-icloud-slideshow {
   overflow: hidden;
   position: relative;
+  -webkit-transform-origin: bottom left;
+  transform-origin: bottom left;
   -webkit-transition: width 0.45s ease, height 0.45s ease;
   transition: width 0.45s ease, height 0.45s ease;
 }
@@ -1651,7 +1660,9 @@ html {
     --tv-icloud-inset: 56px;
     --tv-icloud-max-width: 360;
     --tv-icloud-max-height: 270;
+    bottom: 56px;
     bottom: var(--tv-icloud-inset);
+    left: 56px;
     left: var(--tv-icloud-inset);
   }
 
@@ -1765,7 +1776,9 @@ html {
     --tv-icloud-inset: 24px;
     --tv-icloud-max-width: 264;
     --tv-icloud-max-height: 198;
+    bottom: 24px;
     bottom: var(--tv-icloud-inset);
+    left: 24px;
     left: var(--tv-icloud-inset);
   }
 

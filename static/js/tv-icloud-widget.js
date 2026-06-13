@@ -40,6 +40,58 @@
     return readNumberAttr("data-icloud-transition-seconds", 1.5);
   }
 
+  function readSizeScalePercent() {
+    var body = document.body;
+    var scale = body && body.getAttribute ? parseInt(body.getAttribute("data-icloud-size-scale-percent"), 10) : 100;
+
+    if (isNaN(scale)) {
+      return 100;
+    }
+
+    if (scale < 0) {
+      return 0;
+    }
+
+    if (scale > 300) {
+      return 300;
+    }
+
+    return scale;
+  }
+
+  function applySizeScalePercent(scale) {
+    var body = document.body;
+    var normalized = scale;
+
+    if (normalized === undefined || normalized === null || isNaN(normalized)) {
+      normalized = 100;
+    }
+
+    normalized = parseInt(normalized, 10);
+    if (isNaN(normalized)) {
+      normalized = 100;
+    }
+    if (normalized < 0) {
+      normalized = 0;
+    }
+    if (normalized > 300) {
+      normalized = 300;
+    }
+
+    if (body && body.setAttribute) {
+      body.setAttribute("data-icloud-size-scale-percent", String(normalized));
+    }
+
+    if (normalized < 1) {
+      setWidgetHidden(true);
+      return false;
+    }
+
+    setWidgetHidden(false);
+    schedulePinWidgetFrame();
+    return true;
+  }
+
   function readCssVarPx(element, name, fallback) {
     var style;
     var value;
@@ -60,11 +112,80 @@
 
   function readFrameLimits() {
     var root = frameEl || widgetEl;
+    var scale = readSizeScalePercent() / 100;
+    var baseMaxWidth = readCssVarPx(root, "--tv-icloud-max-width", 336);
+    var baseMaxHeight = readCssVarPx(root, "--tv-icloud-max-height", 252);
+
+    if (scale <= 0) {
+      return {
+        maxWidth: 0,
+        maxHeight: 0,
+      };
+    }
 
     return {
-      maxWidth: readCssVarPx(root, "--tv-icloud-max-width", 336),
-      maxHeight: readCssVarPx(root, "--tv-icloud-max-height", 252),
+      maxWidth: Math.max(1, Math.round(baseMaxWidth * scale)),
+      maxHeight: Math.max(1, Math.round(baseMaxHeight * scale)),
     };
+  }
+
+  function readCornerInset() {
+    var inset = readCssVarPx(frameEl || widgetEl, "--tv-icloud-inset", 0);
+
+    if (inset > 0) {
+      return inset;
+    }
+
+    if (window.matchMedia) {
+      if (window.matchMedia("(max-width: 960px)").matches) {
+        return 24;
+      }
+
+      if (window.matchMedia("(min-width: 1600px)").matches) {
+        return 56;
+      }
+    }
+
+    return 48;
+  }
+
+  function pinWidgetFrame() {
+    var inset;
+    var box;
+    var vh;
+    var topPx;
+
+    if (!frameEl || frameEl.getAttribute("hidden") === "hidden") {
+      return;
+    }
+
+    inset = readCornerInset();
+    frameEl.style.position = "absolute";
+    frameEl.style.left = inset + "px";
+    frameEl.style.right = "auto";
+    frameEl.style.bottom = inset + "px";
+    frameEl.style.top = "auto";
+
+    if (!frameEl.getBoundingClientRect) {
+      return;
+    }
+
+    box = frameEl.getBoundingClientRect();
+    vh = window.innerHeight || document.documentElement.clientHeight || 0;
+
+    /* Tizen M56: bottom is ignored for some layouts — anchor with explicit top. */
+    if (vh > 0 && box.height > 0 && box.top < vh * 0.45) {
+      topPx = Math.max(0, Math.round(vh - box.height - inset));
+      frameEl.style.bottom = "auto";
+      frameEl.style.top = topPx + "px";
+    }
+  }
+
+  function schedulePinWidgetFrame() {
+    pinWidgetFrame();
+
+    window.setTimeout(pinWidgetFrame, 0);
+    window.setTimeout(pinWidgetFrame, 120);
   }
 
   function photoAspect(photo, img) {
@@ -88,6 +209,13 @@
     var aspect = photoAspect(photo, img);
     var width = limits.maxWidth;
     var height = width / aspect;
+
+    if (limits.maxWidth <= 0 || limits.maxHeight <= 0) {
+      return {
+        width: 0,
+        height: 0,
+      };
+    }
 
     if (height > limits.maxHeight) {
       height = limits.maxHeight;
@@ -139,13 +267,24 @@
     widgetEl.style.width = widthPx;
     slideshowEl.style.width = widthPx;
     slideshowEl.style.height = heightPx;
+    schedulePinWidgetFrame();
     return size;
   }
 
   function frameSizeFromElement() {
+    var width = parseInt(slideshowEl && slideshowEl.style.width, 10) || 0;
+    var height = parseInt(slideshowEl && slideshowEl.style.height, 10) || 0;
+    var computed;
+
+    if ((!width || !height) && slideshowEl && window.getComputedStyle) {
+      computed = window.getComputedStyle(slideshowEl);
+      width = Math.round(parseFloat(computed.width)) || width;
+      height = Math.round(parseFloat(computed.height)) || height;
+    }
+
     return {
-      width: parseInt(slideshowEl && slideshowEl.style.width, 10) || 0,
-      height: parseInt(slideshowEl && slideshowEl.style.height, 10) || 0,
+      width: width,
+      height: height,
     };
   }
 
@@ -194,6 +333,8 @@
       if (onComplete) {
         onComplete();
       }
+
+      schedulePinWidgetFrame();
     }
 
     function handleTransitionEnd(event) {
@@ -231,6 +372,7 @@
     widgetEl.style.width = width + "px";
     slideshowEl.style.width = width + "px";
     slideshowEl.style.height = height + "px";
+    schedulePinWidgetFrame();
   }
 
   function parsePhotosPayload(raw) {
@@ -292,11 +434,41 @@
     }
   }
 
-  function fetchJson(url, onSuccess) {
+  function applyConfigFromPayload(data) {
+    var body = document.body;
+    var enabled = !!(data && data.enabled);
+    var scaleValue = data && data.size_scale_percent !== undefined ? data.size_scale_percent : readSizeScalePercent();
+
+    if (!enabled) {
+      setWidgetHidden(true);
+      return false;
+    }
+
+    if (body && body.setAttribute) {
+      if (data && data.slide_duration_seconds) {
+        body.setAttribute("data-icloud-slide-duration", String(data.slide_duration_seconds));
+      }
+      if (data && data.transition_seconds) {
+        body.setAttribute("data-icloud-transition-seconds", String(data.transition_seconds));
+      }
+    }
+
+    if (!applySizeScalePercent(scaleValue)) {
+      return false;
+    }
+
+    applyTransitionSeconds(readTransitionSeconds());
+    return true;
+  }
+
+  function fetchJson(url, onSuccess, onFailure) {
     var xhr = createXhr();
     var requestUrl = String(url || "");
 
     if (!xhr || !requestUrl) {
+      if (onFailure) {
+        onFailure(0);
+      }
       return;
     }
 
@@ -306,7 +478,14 @@
     xhr.timeout = 15000;
 
     xhr.onreadystatechange = function () {
-      if (xhr.readyState !== 4 || xhr.status !== 200) {
+      if (xhr.readyState !== 4) {
+        return;
+      }
+
+      if (xhr.status !== 200) {
+        if (onFailure) {
+          onFailure(xhr.status);
+        }
         return;
       }
 
@@ -315,6 +494,9 @@
       try {
         data = JSON.parse(xhr.responseText || "");
       } catch (error) {
+        if (onFailure) {
+          onFailure(0);
+        }
         return;
       }
 
@@ -326,8 +508,57 @@
     try {
       xhr.send(null);
     } catch (error) {
-      /* ignore */
+      if (onFailure) {
+        onFailure(0);
+      }
     }
+  }
+
+  function refreshWidgetConfig(onReady) {
+    var url = document.body.getAttribute("data-icloud-widget-url");
+    var finished = false;
+
+    function finish(ok) {
+      if (finished) {
+        return;
+      }
+
+      finished = true;
+
+      if (onReady) {
+        onReady(!!ok);
+      }
+    }
+
+    if (!url) {
+      finish(true);
+      return;
+    }
+
+    fetchJson(
+      url,
+      function (data) {
+        var nextPhotos = data && data.photos ? data.photos : null;
+        var available = !!(data && data.available);
+
+        if (!applyConfigFromPayload(data)) {
+          finish(false);
+          return;
+        }
+
+        if (available && nextPhotos && nextPhotos.length) {
+          photos = nextPhotos;
+          if (photoIndex >= photos.length) {
+            photoIndex = 0;
+          }
+        }
+
+        finish(true);
+      },
+      function () {
+        finish(true);
+      }
+    );
   }
 
   function readPollMs() {
@@ -588,7 +819,6 @@
       if (!frameSizesMatch(currentSize, nextSize)) {
         outgoing.style.opacity = "0";
         incoming.style.opacity = "0";
-        setDomImageSrc(img, photo.url);
         animatePhotoFrame(photo, refImg, finishReveal);
         return;
       }
@@ -634,17 +864,27 @@
       return;
     }
 
-    showPhoto(
-      index,
-      function () {
+    refreshWidgetConfig(function (ok) {
+      if (!ok) {
+        transitioning = false;
         if (done) {
           done();
         }
-      },
-      function () {
-        swapPhoto((index + 1) % photos.length, done, attemptsLeft - 1);
+        return;
       }
-    );
+
+      showPhoto(
+        index,
+        function () {
+          if (done) {
+            done();
+          }
+        },
+        function () {
+          swapPhoto((index + 1) % photos.length, done, attemptsLeft - 1);
+        }
+      );
+    });
   }
 
   function scheduleNextPhoto() {
@@ -739,28 +979,12 @@
   }
 
   function applyPayload(data) {
-    var body = document.body;
     var nextPhotos = data && data.photos ? data.photos : [];
-    var enabled = !!(data && data.enabled);
     var available = !!(data && data.available);
 
-    if (!enabled) {
-      setWidgetHidden(true);
+    if (!applyConfigFromPayload(data)) {
       return;
     }
-
-    setWidgetHidden(false);
-
-    if (body && body.setAttribute) {
-      if (data && data.slide_duration_seconds) {
-        body.setAttribute("data-icloud-slide-duration", String(data.slide_duration_seconds));
-      }
-      if (data && data.transition_seconds) {
-        body.setAttribute("data-icloud-transition-seconds", String(data.transition_seconds));
-      }
-    }
-
-    applyTransitionSeconds(readTransitionSeconds());
 
     if (!available || !nextPhotos.length) {
       setEmptyState((data && data.error_label) || "No photos to show");
@@ -773,8 +997,9 @@
       if (photoIndex >= photos.length) {
         photoIndex = 0;
       }
-      applyPhotoFrame(photos[photoIndex], null);
-      scheduleNextPhoto();
+      animatePhotoFrame(photos[photoIndex], null, function () {
+        scheduleNextPhoto();
+      });
       return;
     }
 
@@ -807,7 +1032,18 @@
     slideshowEl = document.getElementById("tv-icloud-slideshow");
     frameEl = document.getElementById("tv-widget-icloud");
 
+    if (window.addEventListener) {
+      window.addEventListener("resize", schedulePinWidgetFrame);
+    } else if (window.attachEvent) {
+      window.attachEvent("onresize", schedulePinWidgetFrame);
+    }
+
     if (!widgetEl || widgetEl.getAttribute("hidden") === "hidden") {
+      startPolling();
+      return;
+    }
+
+    if (!applySizeScalePercent(readSizeScalePercent())) {
       startPolling();
       return;
     }
@@ -818,6 +1054,7 @@
       setFrameTransitionEnabled(false);
       applyDefaultFrame();
       setFrameTransitionEnabled(true);
+      schedulePinWidgetFrame();
       startPolling();
       return;
     }
@@ -827,6 +1064,7 @@
     setFrameTransitionEnabled(true);
     applyTransitionSeconds(readTransitionSeconds());
     started = true;
+    schedulePinWidgetFrame();
     startWithFirstPhoto();
     startPolling();
   }

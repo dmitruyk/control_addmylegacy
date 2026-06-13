@@ -88,6 +88,7 @@ def _dashboard_context(request):
     icloud_frame_width, icloud_frame_height = icloud_photo_frame_size(
         first_icloud_photo.width if first_icloud_photo else None,
         first_icloud_photo.height if first_icloud_photo else None,
+        scale_percent=icloud.size_scale_percent,
     )
     context = {
         "now": now,

@@ -41,6 +41,7 @@
   data-slide-count="{{ slides|length }}"
   data-icloud-slide-duration="{{ icloud_album.slide_duration_seconds }}"
   data-icloud-transition-seconds="{{ icloud_album.transition_seconds }}"
+  data-icloud-size-scale-percent="{{ icloud_album.size_scale_percent }}"
 >
   {% include "partials/tv_updating_overlay.html" %}
 
@@ -60,10 +61,6 @@
         <p class="tv-hud-weekday" id="tv-hud-weekday">{{ now|date:"l" }}</p>
         <p class="tv-hud-date" id="tv-hud-date">{{ now|date:"F j, Y" }}</p>
         <p class="tv-hud-time" id="tv-hud-time">{{ now|date:"g:i" }}<span class="tv-hud-ampm" id="tv-hud-ampm">{{ now|date:"A" }}</span></p>
-      </div>
-
-      <div class="tv-hud-icloud" id="tv-widget-icloud">
-        {% include "partials/tv_icloud_card.html" %}
       </div>
 
       <div class="tv-hud-widgets">
@@ -91,6 +88,10 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="tv-hud-icloud" id="tv-widget-icloud">
+      {% include "partials/tv_icloud_card.html" %}
     </div>
 
     {% if display_config.show_info_panels %}

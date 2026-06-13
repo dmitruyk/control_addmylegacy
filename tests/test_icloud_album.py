@@ -10,6 +10,8 @@ from core.icloud_album import (
     icloud_album_widget,
     icloud_album_widget_payload,
     icloud_photo_frame_size,
+    icloud_scaled_max_bounds,
+    normalize_size_scale_percent,
 )
 from core.models import IcloudAlbumConfig
 
@@ -43,6 +45,26 @@ class IcloudPhotoFrameSizeTests(SimpleTestCase):
 
     def test_missing_dimensions_use_default(self):
         self.assertEqual(icloud_photo_frame_size(None, None), (336, 189))
+
+    def test_portrait_1537_by_2049(self):
+        width, height = icloud_photo_frame_size(1537, 2049)
+        self.assertEqual(width, 189)
+        self.assertEqual(height, 252)
+        self.assertAlmostEqual(width / height, 1537 / 2049, places=3)
+
+    def test_scale_doubles_portrait_frame(self):
+        width, height = icloud_photo_frame_size(1537, 2049, scale_percent=200)
+        self.assertEqual(width, 378)
+        self.assertEqual(height, 504)
+
+    def test_scale_zero_hides_frame(self):
+        self.assertEqual(icloud_scaled_max_bounds(0), (0, 0))
+        self.assertEqual(icloud_photo_frame_size(1537, 2049, scale_percent=0), (0, 0))
+
+    def test_normalize_size_scale_percent(self):
+        self.assertEqual(normalize_size_scale_percent(150), 150)
+        self.assertEqual(normalize_size_scale_percent(999), 300)
+        self.assertEqual(normalize_size_scale_percent(-5), 0)
 
 
 class IcloudAlbumWidgetTests(TestCase):
@@ -100,6 +122,7 @@ class IcloudAlbumWidgetTests(TestCase):
 
         self.assertTrue(payload["enabled"])
         self.assertTrue(payload["available"])
+        self.assertEqual(payload["size_scale_percent"], 100)
         self.assertEqual(payload["photos"][0]["url"], "https://example.com/photo.jpg")
 
 
@@ -115,6 +138,7 @@ class IcloudWidgetUrlTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data["available"])
+        self.assertEqual(data["size_scale_percent"], 100)
         self.assertEqual(data["photos"][0]["caption"], "Test")
 
     @patch("core.views.icloud_album_widget")
@@ -128,6 +152,7 @@ class IcloudWidgetUrlTests(TestCase):
             ),
             slide_duration_seconds=8,
             transition_seconds=1.5,
+            size_scale_percent=100,
             error_label="",
         )
 
@@ -136,4 +161,5 @@ class IcloudWidgetUrlTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="tv-widget-icloud"')
         self.assertContains(response, 'id="tv-icloud-widget"')
+        self.assertContains(response, 'data-icloud-size-scale-percent="100"')
         self.assertContains(response, reverse("core:tv_widget_icloud"))

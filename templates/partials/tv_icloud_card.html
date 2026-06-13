@@ -2,7 +2,7 @@
   class="tv-widget-card tv-icloud-card"
   id="tv-icloud-widget"
   style="width: {{ icloud_frame_width }}px;"
-  {% if not icloud_album.is_enabled %} hidden{% endif %}
+  {% if not icloud_album.is_enabled or icloud_album.size_scale_percent < 1 %} hidden{% endif %}
 >
   <div
     class="tv-icloud-slideshow"

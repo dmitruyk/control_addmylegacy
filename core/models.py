@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.core.cache import cache
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from core.art_slides import art_slide_upload_to, normalize_uploaded_slide, slide_has_source
@@ -81,6 +82,11 @@ class IcloudAlbumConfig(models.Model):
         default=1.5,
         help_text="Crossfade duration between widget photos.",
     )
+    size_scale_percent = models.IntegerField(
+        default=100,
+        validators=[MinValueValidator(0), MaxValueValidator(300)],
+        help_text="Widget output size as % of the default max frame (0–300). 100 = normal, 200 = double.",
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -104,6 +110,7 @@ class IcloudAlbumConfig(models.Model):
                 "shared_album_url": "https://www.icloud.com/sharedalbum/#B29JtdOXmok8Aj",
                 "slide_duration_seconds": 8,
                 "transition_seconds": 1.5,
+                "size_scale_percent": 100,
             },
         )
         return obj

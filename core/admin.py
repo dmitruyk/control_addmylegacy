@@ -43,7 +43,7 @@ class TvDisplayConfigAdmin(admin.ModelAdmin):
 
 @admin.register(IcloudAlbumConfig)
 class IcloudAlbumConfigAdmin(admin.ModelAdmin):
-    list_display = ("title", "is_enabled", "shared_album_url", "slide_duration_seconds", "updated_at")
+    list_display = ("title", "is_enabled", "size_scale_percent", "shared_album_url", "slide_duration_seconds", "updated_at")
     fieldsets = (
         (
             None,
@@ -58,7 +58,12 @@ class IcloudAlbumConfigAdmin(admin.ModelAdmin):
         (
             "Slideshow",
             {
-                "fields": ("slide_duration_seconds", "transition_seconds"),
+                "fields": ("slide_duration_seconds", "transition_seconds", "size_scale_percent"),
+                "description": (
+                    "size_scale_percent sets widget output size relative to the default max frame "
+                    "(100 = normal, 200 = double, 0 = hidden). "
+                    "The TV reloads this value on every slide change."
+                ),
             },
         ),
     )
